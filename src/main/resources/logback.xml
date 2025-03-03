@@ -1,8 +1,13 @@
 <configuration>
-    <!-- 控制台输出 -->
+    <!-- 定义ANSI颜色代码 -->
+    <property name="CONSOLE_LOG_PATTERN" 
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) [%thread] %yellow(%logger{36}) - %msg%n"/>
+    
+    <!-- 控制台输出 (带颜色) -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
         </encoder>
     </appender>
     
@@ -15,7 +20,24 @@
         </rollingPolicy>
         <encoder>
             <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <charset>UTF-8</charset>
         </encoder>
+    </appender>
+    
+    <!-- 详细的调试日志文件 -->
+    <appender name="DEBUG_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/debug.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/debug.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>7</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>DEBUG</level>
+        </filter>
     </appender>
     
     <!-- 设置日志级别 -->
@@ -25,6 +47,8 @@
     </root>
     
     <!-- 为特定包设置更详细的日志级别 -->
-    <logger name="com.yourbot" level="DEBUG" />
+    <logger name="com.yourbot" level="DEBUG">
+        <appender-ref ref="DEBUG_FILE" />
+    </logger>
     <logger name="org.quartz" level="INFO" />
 </configuration> 

@@ -13,4 +13,6 @@ public class ScheduledTask {
     private boolean enable;        // 是否启用（用于GROUP_BAN_ALL类型）
     private long memberId;         // 成员ID（用于GROUP_BAN_MEMBER类型）
     private int duration;          // 禁言时长（秒）（用于GROUP_BAN_MEMBER类型）
+    private boolean sendNotice;    // 是否发送通知消息
+    private String noticeContent;  // 通知消息内容
 } 

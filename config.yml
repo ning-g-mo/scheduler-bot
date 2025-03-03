@@ -25,6 +25,8 @@ scheduledTasks:
     targetId: 123456789
     cronExpression: "0 0 23 ? * FRI"  # 每周五晚上11点执行
     enable: true  # true表示开启全体禁言，false表示关闭
+    sendNotice: true  # 是否发送通知消息
+    noticeContent: "周末愉快！全体禁言开启，请各位周一见~"  # 通知消息内容
     
   - name: "周一解除全体禁言"
     type: "GROUP_BAN_ALL"
@@ -32,6 +34,8 @@ scheduledTasks:
     targetId: 123456789
     cronExpression: "0 0 8 ? * MON"  # 每周一早上8点执行
     enable: false  # false表示关闭全体禁言
+    sendNotice: true  # 是否发送通知消息
+    noticeContent: "早上好！新的一周开始了，全体禁言已解除~"  # 通知消息内容
     
   - name: "特定用户禁言"
     type: "GROUP_BAN_MEMBER"
@@ -40,3 +44,15 @@ scheduledTasks:
     memberId: 111222333  # 要禁言的成员QQ号
     cronExpression: "0 0 12 * * ?"  # 每天中午12点执行
     duration: 3600  # 禁言时长（秒），0表示解除禁言
+    sendNotice: true  # 是否发送通知消息
+    noticeContent: "成员 {memberId} 已被禁言 {duration}，请遵守群规则。"  # 通知消息内容，支持变量替换
+    
+  - name: "特定用户解禁"
+    type: "GROUP_BAN_MEMBER"
+    targetType: "GROUP"
+    targetId: 123456789
+    memberId: 111222333  # 要解禁的成员QQ号
+    cronExpression: "0 0 13 * * ?"  # 每天下午1点执行
+    duration: 0  # 禁言时长为0表示解除禁言
+    sendNotice: true  # 是否发送通知消息
+    noticeContent: "成员 {memberId} 的禁言已解除，希望遵守群规则。"  # 通知消息内容，支持变量替换

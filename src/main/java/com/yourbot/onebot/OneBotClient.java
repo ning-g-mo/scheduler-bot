@@ -8,6 +8,7 @@ import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.yourbot.util.ConsoleUtil;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -58,18 +59,20 @@ public class OneBotClient {
                 public void onOpen(ServerHandshake handshakedata) {
                     connected = true;
                     logger.info("已连接到OneBot服务器: {}", wsUrl);
-                    System.out.println("已连接到OneBot服务器");
+                    ConsoleUtil.success("已连接到OneBot服务器: " + wsUrl);
                 }
                 
                 @Override
                 public void onMessage(String message) {
                     try {
                         logger.debug("收到消息: {}", message);
+                        ConsoleUtil.debug("收到OneBot消息: " + message.substring(0, Math.min(100, message.length())) + 
+                                (message.length() > 100 ? "..." : ""));
                         JsonNode json = mapper.readTree(message);
                         // 处理接收到的消息
                     } catch (Exception e) {
                         logger.error("处理消息失败", e);
-                        System.err.println("处理消息失败: " + e.getMessage());
+                        ConsoleUtil.error("处理消息失败: " + e.getMessage());
                     }
                 }
                 
@@ -77,16 +80,18 @@ public class OneBotClient {
                 public void onClose(int code, String reason, boolean remote) {
                     connected = false;
                     logger.warn("与OneBot服务器的连接已关闭: 代码={}, 原因={}, 远程关闭={}", code, reason, remote);
-                    System.out.println("与OneBot服务器的连接已关闭: " + reason);
+                    ConsoleUtil.warn("与OneBot服务器的连接已关闭: 代码=" + code + ", 原因=" + reason);
                     
                     // 尝试重新连接
                     logger.info("5秒后尝试重新连接...");
+                    ConsoleUtil.info("5秒后尝试重新连接...");
                     new Thread(() -> {
                         try {
                             Thread.sleep(5000);
                             connect();
                         } catch (InterruptedException e) {
                             logger.error("重连线程被中断", e);
+                            ConsoleUtil.error("重连线程被中断: " + e.getMessage());
                             Thread.currentThread().interrupt();
                         }
                     }).start();
@@ -95,7 +100,7 @@ public class OneBotClient {
                 @Override
                 public void onError(Exception ex) {
                     logger.error("WebSocket错误", ex);
-                    System.err.println("WebSocket错误: " + ex.getMessage());
+                    ConsoleUtil.error("WebSocket错误: " + ex.getMessage());
                 }
             };
             

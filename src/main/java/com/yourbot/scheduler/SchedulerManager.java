@@ -10,6 +10,8 @@ import org.slf4j.LoggerFactory;
 import java.util.Date;
 import java.util.List;
 
+import com.yourbot.util.ConsoleUtil;
+
 public class SchedulerManager {
     private static final Logger logger = LoggerFactory.getLogger(SchedulerManager.class);
     
@@ -116,45 +118,105 @@ public class SchedulerManager {
             OneBotClient client = (OneBotClient) dataMap.get("oneBotClient");
             
             jobLogger.info("执行定时任务: {}", task.getName());
-            System.out.println("执行定时任务: " + task.getName());
+            ConsoleUtil.task(task.getName(), "开始执行");
             
             try {
                 switch (task.getType()) {
                     case SEND_MESSAGE:
                         if ("GROUP".equals(task.getTargetType())) {
                             jobLogger.info("发送群消息到 {}: {}", task.getTargetId(), task.getContent());
+                            ConsoleUtil.task(task.getName(), "发送群消息到 " + task.getTargetId());
                             client.sendGroupMessage(task.getTargetId(), task.getContent());
                         } else if ("PRIVATE".equals(task.getTargetType())) {
                             jobLogger.info("发送私聊消息到 {}: {}", task.getTargetId(), task.getContent());
+                            ConsoleUtil.task(task.getName(), "发送私聊消息到 " + task.getTargetId());
                             client.sendPrivateMessage(task.getTargetId(), task.getContent());
                         } else {
                             jobLogger.warn("未知的目标类型: {}", task.getTargetType());
+                            ConsoleUtil.warn("未知的目标类型: " + task.getTargetType());
                         }
                         break;
                         
                     case GROUP_BAN_ALL:
                         jobLogger.info("设置群 {} 全体禁言: {}", task.getTargetId(), task.isEnable());
+                        ConsoleUtil.task(task.getName(), "设置群 " + task.getTargetId() + " 全体" + (task.isEnable() ? "禁言" : "解禁"));
                         client.setGroupWholeBan(task.getTargetId(), task.isEnable());
+                        
+                        // 发送禁言/解禁通知
+                        if (task.isSendNotice() && task.getNoticeContent() != null && !task.getNoticeContent().isEmpty()) {
+                            String noticeMsg = task.getNoticeContent();
+                            jobLogger.info("发送全体{}通知: {}", task.isEnable() ? "禁言" : "解禁", noticeMsg);
+                            ConsoleUtil.task(task.getName(), "发送全体" + (task.isEnable() ? "禁言" : "解禁") + "通知");
+                            client.sendGroupMessage(task.getTargetId(), noticeMsg);
+                        }
                         break;
                         
                     case GROUP_BAN_MEMBER:
                         jobLogger.info("设置群 {} 成员 {} 禁言 {} 秒", 
                                 task.getTargetId(), task.getMemberId(), task.getDuration());
+                        ConsoleUtil.task(task.getName(), "设置群 " + task.getTargetId() + " 成员 " + task.getMemberId() + 
+                                (task.getDuration() > 0 ? " 禁言 " + formatDuration(task.getDuration()) : " 解除禁言"));
                         client.setGroupBan(task.getTargetId(), task.getMemberId(), task.getDuration());
+                        
+                        // 发送禁言/解禁通知
+                        if (task.isSendNotice() && task.getNoticeContent() != null && !task.getNoticeContent().isEmpty()) {
+                            String noticeMsg = task.getNoticeContent();
+                            // 替换变量
+                            noticeMsg = noticeMsg.replace("{memberId}", String.valueOf(task.getMemberId()))
+                                                .replace("{duration}", formatDuration(task.getDuration()));
+                            
+                            jobLogger.info("发送成员{}通知: {}", task.getDuration() > 0 ? "禁言" : "解禁", noticeMsg);
+                            ConsoleUtil.task(task.getName(), "发送成员" + (task.getDuration() > 0 ? "禁言" : "解禁") + "通知");
+                            client.sendGroupMessage(task.getTargetId(), noticeMsg);
+                        }
                         break;
                         
                     default:
                         jobLogger.warn("未知的任务类型: {}", task.getType());
+                        ConsoleUtil.warn("未知的任务类型: " + task.getType());
                         break;
                 }
                 
                 jobLogger.info("任务 {} 执行完成", task.getName());
+                ConsoleUtil.task(task.getName(), "执行完成");
             } catch (Exception e) {
                 jobLogger.error("执行定时任务失败: {}", task.getName(), e);
-                System.err.println("执行定时任务失败: " + e.getMessage());
+                ConsoleUtil.error("执行定时任务失败: " + task.getName() + " - " + e.getMessage());
                 e.printStackTrace();
                 throw new JobExecutionException(e);
             }
+        }
+        
+        /**
+         * 格式化禁言时长
+         */
+        private String formatDuration(int seconds) {
+            if (seconds <= 0) {
+                return "永久";
+            }
+            
+            StringBuilder sb = new StringBuilder();
+            int days = seconds / (24 * 3600);
+            seconds %= (24 * 3600);
+            int hours = seconds / 3600;
+            seconds %= 3600;
+            int minutes = seconds / 60;
+            seconds %= 60;
+            
+            if (days > 0) {
+                sb.append(days).append("天");
+            }
+            if (hours > 0) {
+                sb.append(hours).append("小时");
+            }
+            if (minutes > 0) {
+                sb.append(minutes).append("分钟");
+            }
+            if (seconds > 0 || sb.length() == 0) {
+                sb.append(seconds).append("秒");
+            }
+            
+            return sb.toString();
         }
     }
 } 
