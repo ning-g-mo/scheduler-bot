@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 public class OneBotClient {
@@ -131,7 +132,7 @@ public class OneBotClient {
             
             ObjectNode params = mapper.createObjectNode();
             params.put("group_id", groupId);
-            params.put("message", message);
+            params.put("message", new String(message.getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8));
             
             json.set("params", params);
             json.put("echo", UUID.randomUUID().toString());
@@ -162,7 +163,7 @@ public class OneBotClient {
             
             ObjectNode params = mapper.createObjectNode();
             params.put("user_id", userId);
-            params.put("message", message);
+            params.put("message", new String(message.getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8));
             
             json.set("params", params);
             json.put("echo", UUID.randomUUID().toString());

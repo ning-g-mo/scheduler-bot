@@ -6,12 +6,24 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.util.Scanner;
 
 public class Main {
     private static final Logger logger = LoggerFactory.getLogger(Main.class);
     
     public static void main(String[] args) {
+        // 设置默认字符编码
+        System.setProperty("file.encoding", "UTF-8");
+        logger.info("设置默认字符编码: UTF-8");
+        
+        // 创建日志目录
+        File logDir = new File("logs");
+        if (!logDir.exists()) {
+            logDir.mkdir();
+            logger.info("创建日志目录: {}", logDir.getAbsolutePath());
+        }
+        
         logger.info("正在启动机器人...");
         
         try {
@@ -25,16 +37,9 @@ public class Main {
             schedulerManager.loadTasks();
             
             // 命令行交互
-            Scanner scanner = new Scanner(System.in);
+            Scanner scanner = new Scanner(System.in, StandardCharsets.UTF_8.name());
             logger.info("机器人已启动，输入 'reload' 重新加载配置，输入 'exit' 退出程序");
             System.out.println("机器人已启动，输入 'reload' 重新加载配置，输入 'exit' 退出程序");
-            
-            // 在main方法开始处添加以下代码
-            File logDir = new File("logs");
-            if (!logDir.exists()) {
-                logDir.mkdir();
-                logger.info("创建日志目录: {}", logDir.getAbsolutePath());
-            }
             
             while (true) {
                 String command = scanner.nextLine().trim();

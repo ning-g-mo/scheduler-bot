@@ -43,8 +43,10 @@ public class ConfigManager {
                 return;
             }
             
-            logger.debug("解析YAML配置文件");
+            logger.debug("解析YAML配置文件，使用UTF-8编码");
             ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+            // 确保使用UTF-8编码
+            mapper.configure(com.fasterxml.jackson.core.JsonParser.Feature.AUTO_CLOSE_SOURCE, true);
             Config config = mapper.readValue(configFile, Config.class);
             
             this.botConfig = config.getBot();
