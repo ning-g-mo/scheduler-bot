@@ -39,7 +39,7 @@ public class OneBotClient {
             ConfigManager.BotConfig botConfig = ConfigManager.getInstance().getBotConfig();
             if (botConfig == null) {
                 logger.error("机器人配置为空，无法连接到OneBot服务器");
-                System.err.println("机器人配置为空，无法连接到OneBot服务器");
+                ConsoleUtil.error("机器人配置为空，无法连接到OneBot服务器");
                 return;
             }
             
@@ -48,11 +48,17 @@ public class OneBotClient {
             
             if (wsUrl == null || wsUrl.isEmpty()) {
                 logger.error("WebSocket URL为空，无法连接到OneBot服务器");
-                System.err.println("WebSocket URL为空，无法连接到OneBot服务器");
+                ConsoleUtil.error("WebSocket URL为空，无法连接到OneBot服务器");
                 return;
             }
             
+            if ("ws://127.0.0.1:6700".equals(wsUrl)) {
+                logger.warn("正在使用默认WebSocket地址，如果连接失败，请修改config.yml中的websocket地址");
+                ConsoleUtil.warn("正在使用默认WebSocket地址，如果连接失败，请修改config.yml中的websocket地址");
+            }
+            
             logger.info("正在连接到OneBot服务器: {}", wsUrl);
+            ConsoleUtil.info("正在连接到OneBot服务器: " + wsUrl);
             
             client = new WebSocketClient(new URI(wsUrl)) {
                 @Override
@@ -113,7 +119,18 @@ public class OneBotClient {
             client.connect();
         } catch (Exception e) {
             logger.error("连接OneBot服务器失败", e);
-            System.err.println("连接OneBot服务器失败: " + e.getMessage());
+            ConsoleUtil.error("连接OneBot服务器失败: " + e.getMessage());
+            
+            // 添加更详细的错误提示
+            if (e instanceof java.net.ConnectException) {
+                ConsoleUtil.error("无法连接到OneBot服务器，请检查：");
+                ConsoleUtil.error("1. OneBot服务器是否已启动");
+                ConsoleUtil.error("2. config.yml中的websocket地址是否正确");
+                ConsoleUtil.error("3. 网络连接是否正常");
+            } else if (e instanceof java.net.UnknownHostException) {
+                ConsoleUtil.error("无法解析OneBot服务器地址，请检查config.yml中的websocket地址是否正确");
+            }
+            
             e.printStackTrace();
         }
     }

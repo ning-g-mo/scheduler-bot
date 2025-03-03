@@ -9,8 +9,11 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Date;
 import java.util.List;
+import java.time.LocalDateTime;
 
 import com.yourbot.util.ConsoleUtil;
+import com.yourbot.log.TaskExecutionLog;
+import com.yourbot.log.TaskLogManager;
 
 public class SchedulerManager {
     private static final Logger logger = LoggerFactory.getLogger(SchedulerManager.class);
@@ -52,20 +55,30 @@ public class SchedulerManager {
             List<ScheduledTask> tasks = ConfigManager.getInstance().getScheduledTasks();
             if (tasks == null || tasks.isEmpty()) {
                 logger.warn("没有找到定时任务配置");
-                System.out.println("没有找到定时任务配置");
+                ConsoleUtil.warn("没有找到定时任务配置，请检查config.yml文件");
                 return;
             }
             
             logger.info("开始加载 {} 个定时任务", tasks.size());
+            ConsoleUtil.info("开始加载 " + tasks.size() + " 个定时任务");
+            
+            int successCount = 0;
             for (ScheduledTask task : tasks) {
-                scheduleTask(task);
+                try {
+                    scheduleTask(task);
+                    successCount++;
+                } catch (Exception e) {
+                    logger.error("加载任务 {} 失败: {}", task.getName(), e.getMessage());
+                    ConsoleUtil.error("加载任务 " + task.getName() + " 失败: " + e.getMessage());
+                }
             }
             
-            logger.info("成功加载 {} 个定时任务", tasks.size());
-            System.out.println("成功加载 " + tasks.size() + " 个定时任务");
+            logger.info("成功加载 {} 个定时任务，失败 {} 个", successCount, tasks.size() - successCount);
+            ConsoleUtil.success("成功加载 " + successCount + " 个定时任务" + 
+                    (tasks.size() - successCount > 0 ? "，失败 " + (tasks.size() - successCount) + " 个" : ""));
         } catch (SchedulerException e) {
             logger.error("加载定时任务失败", e);
-            System.err.println("加载定时任务失败: " + e.getMessage());
+            ConsoleUtil.error("加载定时任务失败: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -117,23 +130,40 @@ public class SchedulerManager {
             ScheduledTask task = (ScheduledTask) dataMap.get("task");
             OneBotClient client = (OneBotClient) dataMap.get("oneBotClient");
             
+            // 创建任务执行日志
+            TaskExecutionLog log = new TaskExecutionLog();
+            log.setId(TaskExecutionLog.generateId());
+            log.setTaskName(task.getName());
+            log.setTaskType(task.getType().toString());
+            log.setExecutionTime(LocalDateTime.now());
+            log.setTargetType(task.getTargetType());
+            log.setTargetId(task.getTargetId());
+            log.setSuccess(true); // 默认为成功，如果出错会设置为失败
+            
             jobLogger.info("执行定时任务: {}", task.getName());
             ConsoleUtil.task(task.getName(), "开始执行");
             
             try {
+                StringBuilder details = new StringBuilder();
+                
                 switch (task.getType()) {
                     case SEND_MESSAGE:
                         if ("GROUP".equals(task.getTargetType())) {
                             jobLogger.info("发送群消息到 {}: {}", task.getTargetId(), task.getContent());
                             ConsoleUtil.task(task.getName(), "发送群消息到 " + task.getTargetId());
                             client.sendGroupMessage(task.getTargetId(), task.getContent());
+                            details.append("发送群消息到 ").append(task.getTargetId()).append(": ")
+                                   .append(task.getContent());
                         } else if ("PRIVATE".equals(task.getTargetType())) {
                             jobLogger.info("发送私聊消息到 {}: {}", task.getTargetId(), task.getContent());
                             ConsoleUtil.task(task.getName(), "发送私聊消息到 " + task.getTargetId());
                             client.sendPrivateMessage(task.getTargetId(), task.getContent());
+                            details.append("发送私聊消息到 ").append(task.getTargetId()).append(": ")
+                                   .append(task.getContent());
                         } else {
                             jobLogger.warn("未知的目标类型: {}", task.getTargetType());
                             ConsoleUtil.warn("未知的目标类型: " + task.getTargetType());
+                            details.append("未知的目标类型: ").append(task.getTargetType());
                         }
                         break;
                         
@@ -141,6 +171,8 @@ public class SchedulerManager {
                         jobLogger.info("设置群 {} 全体禁言: {}", task.getTargetId(), task.isEnable());
                         ConsoleUtil.task(task.getName(), "设置群 " + task.getTargetId() + " 全体" + (task.isEnable() ? "禁言" : "解禁"));
                         client.setGroupWholeBan(task.getTargetId(), task.isEnable());
+                        details.append("设置群 ").append(task.getTargetId()).append(" 全体")
+                               .append(task.isEnable() ? "禁言" : "解禁");
                         
                         // 发送禁言/解禁通知
                         if (task.isSendNotice() && task.getNoticeContent() != null && !task.getNoticeContent().isEmpty()) {
@@ -148,6 +180,7 @@ public class SchedulerManager {
                             jobLogger.info("发送全体{}通知: {}", task.isEnable() ? "禁言" : "解禁", noticeMsg);
                             ConsoleUtil.task(task.getName(), "发送全体" + (task.isEnable() ? "禁言" : "解禁") + "通知");
                             client.sendGroupMessage(task.getTargetId(), noticeMsg);
+                            details.append(", 发送通知: ").append(noticeMsg);
                         }
                         break;
                         
@@ -157,6 +190,9 @@ public class SchedulerManager {
                         ConsoleUtil.task(task.getName(), "设置群 " + task.getTargetId() + " 成员 " + task.getMemberId() + 
                                 (task.getDuration() > 0 ? " 禁言 " + formatDuration(task.getDuration()) : " 解除禁言"));
                         client.setGroupBan(task.getTargetId(), task.getMemberId(), task.getDuration());
+                        details.append("设置群 ").append(task.getTargetId()).append(" 成员 ")
+                               .append(task.getMemberId()).append(" ")
+                               .append(task.getDuration() > 0 ? "禁言 " + formatDuration(task.getDuration()) : "解除禁言");
                         
                         // 发送禁言/解禁通知
                         if (task.isSendNotice() && task.getNoticeContent() != null && !task.getNoticeContent().isEmpty()) {
@@ -168,21 +204,34 @@ public class SchedulerManager {
                             jobLogger.info("发送成员{}通知: {}", task.getDuration() > 0 ? "禁言" : "解禁", noticeMsg);
                             ConsoleUtil.task(task.getName(), "发送成员" + (task.getDuration() > 0 ? "禁言" : "解禁") + "通知");
                             client.sendGroupMessage(task.getTargetId(), noticeMsg);
+                            details.append(", 发送通知: ").append(noticeMsg);
                         }
                         break;
                         
                     default:
                         jobLogger.warn("未知的任务类型: {}", task.getType());
                         ConsoleUtil.warn("未知的任务类型: " + task.getType());
+                        details.append("未知的任务类型: ").append(task.getType());
                         break;
                 }
                 
                 jobLogger.info("任务 {} 执行完成", task.getName());
                 ConsoleUtil.task(task.getName(), "执行完成");
+                
+                // 设置日志详情并记录
+                log.setDetails(details.toString());
+                TaskLogManager.getInstance().logTaskExecution(log);
+                
             } catch (Exception e) {
                 jobLogger.error("执行定时任务失败: {}", task.getName(), e);
                 ConsoleUtil.error("执行定时任务失败: " + task.getName() + " - " + e.getMessage());
                 e.printStackTrace();
+                
+                // 设置日志为失败并记录错误信息
+                log.setSuccess(false);
+                log.setErrorMessage(e.getMessage());
+                TaskLogManager.getInstance().logTaskExecution(log);
+                
                 throw new JobExecutionException(e);
             }
         }

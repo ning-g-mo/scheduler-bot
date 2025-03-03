@@ -3,6 +3,7 @@ package com.yourbot.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.yourbot.scheduler.ScheduledTask;
+import com.yourbot.scheduler.TaskType;
 import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,6 +12,7 @@ import com.yourbot.util.ConsoleUtil;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 @Data
@@ -41,9 +43,13 @@ public class ConfigManager {
         try {
             File configFile = new File(configPath);
             if (!configFile.exists()) {
-                logger.error("配置文件不存在: {}", configPath);
-                ConsoleUtil.error("配置文件不存在: " + configPath);
-                return;
+                logger.warn("配置文件不存在: {}", configPath);
+                ConsoleUtil.warn("配置文件不存在: " + configPath);
+                
+                // 创建默认配置文件
+                createDefaultConfig(configFile);
+                ConsoleUtil.success("已创建默认配置文件: " + configPath);
+                logger.info("已创建默认配置文件: {}", configPath);
             }
             
             logger.debug("解析YAML配置文件，使用UTF-8编码");
@@ -73,6 +79,100 @@ public class ConfigManager {
             ConsoleUtil.error("加载配置文件失败: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+    
+    /**
+     * 创建默认配置文件
+     */
+    private void createDefaultConfig(File configFile) throws IOException {
+        logger.info("创建默认配置文件: {}", configFile.getAbsolutePath());
+        ConsoleUtil.info("创建默认配置文件...");
+        
+        // 创建默认机器人配置
+        BotConfig defaultBotConfig = new BotConfig();
+        defaultBotConfig.setWebsocket("ws://127.0.0.1:6700");
+        defaultBotConfig.setAccessToken("");
+        
+        // 创建默认定时任务
+        List<ScheduledTask> defaultTasks = createDefaultTasks();
+        
+        // 创建配置对象
+        Config config = new Config();
+        config.setBot(defaultBotConfig);
+        config.setScheduledTasks(defaultTasks);
+        
+        // 写入配置文件
+        ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+        mapper.writeValue(configFile, config);
+        
+        logger.info("默认配置文件创建成功，包含 {} 个示例任务", defaultTasks.size());
+        ConsoleUtil.info("默认配置文件创建成功，包含 " + defaultTasks.size() + " 个示例任务");
+    }
+    
+    /**
+     * 创建默认定时任务列表
+     */
+    private List<ScheduledTask> createDefaultTasks() {
+        List<ScheduledTask> tasks = new ArrayList<>();
+        
+        // 示例1：早安问候
+        ScheduledTask task1 = new ScheduledTask();
+        task1.setName("早安问候");
+        task1.setType(TaskType.SEND_MESSAGE);
+        task1.setTargetType("GROUP");
+        task1.setTargetId(123456789); // 示例群号，用户需要修改
+        task1.setCronExpression("0 30 7 * * ?"); // 每天早上7:30
+        task1.setContent("早上好，今天也要元气满满哦！");
+        tasks.add(task1);
+        
+        // 示例2：晚间提醒
+        ScheduledTask task2 = new ScheduledTask();
+        task2.setName("晚间提醒");
+        task2.setType(TaskType.SEND_MESSAGE);
+        task2.setTargetType("PRIVATE");
+        task2.setTargetId(987654321); // 示例QQ号，用户需要修改
+        task2.setCronExpression("0 0 22 * * ?"); // 每天晚上10点
+        task2.setContent("该休息了，记得早点睡觉哦~");
+        tasks.add(task2);
+        
+        // 示例3：周末全体禁言
+        ScheduledTask task3 = new ScheduledTask();
+        task3.setName("周末全体禁言");
+        task3.setType(TaskType.GROUP_BAN_ALL);
+        task3.setTargetType("GROUP");
+        task3.setTargetId(123456789); // 示例群号，用户需要修改
+        task3.setCronExpression("0 0 23 ? * FRI"); // 每周五晚上11点
+        task3.setEnable(true); // 开启全体禁言
+        task3.setSendNotice(true);
+        task3.setNoticeContent("周末愉快！全体禁言开启，请各位周一见~");
+        tasks.add(task3);
+        
+        // 示例4：周一解除全体禁言
+        ScheduledTask task4 = new ScheduledTask();
+        task4.setName("周一解除全体禁言");
+        task4.setType(TaskType.GROUP_BAN_ALL);
+        task4.setTargetType("GROUP");
+        task4.setTargetId(123456789); // 示例群号，用户需要修改
+        task4.setCronExpression("0 0 8 ? * MON"); // 每周一早上8点
+        task4.setEnable(false); // 关闭全体禁言
+        task4.setSendNotice(true);
+        task4.setNoticeContent("早上好！新的一周开始了，全体禁言已解除~");
+        tasks.add(task4);
+        
+        // 示例5：特定用户禁言
+        ScheduledTask task5 = new ScheduledTask();
+        task5.setName("特定用户禁言");
+        task5.setType(TaskType.GROUP_BAN_MEMBER);
+        task5.setTargetType("GROUP");
+        task5.setTargetId(123456789); // 示例群号，用户需要修改
+        task5.setMemberId(111222333); // 示例成员QQ号，用户需要修改
+        task5.setCronExpression("0 0 12 * * ?"); // 每天中午12点
+        task5.setDuration(3600); // 禁言1小时
+        task5.setSendNotice(true);
+        task5.setNoticeContent("成员 {memberId} 已被禁言 {duration}，请遵守群规则。");
+        tasks.add(task5);
+        
+        return tasks;
     }
     
     @Data

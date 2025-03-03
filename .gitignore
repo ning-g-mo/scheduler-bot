@@ -1,2 +1,33 @@
-.idea
-target
+# 编译输出
+/target/
+/bin/
+/build/
+
+# 日志文件
+/logs/
+/exports/
+
+# 配置文件（可选，如果不想将配置文件加入版本控制）
+# config.yml
+
+# IDE文件
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+.vscode/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 其他
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+hs_err_pid*

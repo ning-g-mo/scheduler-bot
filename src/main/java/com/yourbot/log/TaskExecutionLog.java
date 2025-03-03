@@ -1,0 +1,44 @@
+package com.yourbot.log;
+
+import lombok.Data;
+import java.time.LocalDateTime;
+
+/**
+ * 任务执行日志实体类
+ */
+@Data
+public class TaskExecutionLog {
+    // 日志ID
+    private String id;
+    
+    // 任务名称
+    private String taskName;
+    
+    // 任务类型
+    private String taskType;
+    
+    // 执行时间
+    private LocalDateTime executionTime;
+    
+    // 执行结果（成功/失败）
+    private boolean success;
+    
+    // 目标类型（群/私聊）
+    private String targetType;
+    
+    // 目标ID（群号/QQ号）
+    private long targetId;
+    
+    // 执行详情
+    private String details;
+    
+    // 错误信息（如果有）
+    private String errorMessage;
+    
+    /**
+     * 生成唯一ID
+     */
+    public static String generateId() {
+        return java.util.UUID.randomUUID().toString();
+    }
+} 
