@@ -192,10 +192,11 @@ public class ConfigManager {
     
     @Data
     public static class LogConfig {
-        private boolean enableMessageLog = false;
-        private boolean enableDebugLog = false;
-        private int maxMessageLogs = 1000;
-        private int maxDays = 30;
+        private boolean enableMessageLog = false;    // 是否记录收到的消息
+        private boolean enableDebugLog = false;      // 是否启用调试日志
+        private boolean includeInfoInNormal = true;  // 是否在普通日志中包含INFO和MIXIN日志
+        private int maxMessageLogs = 1000;          // 最大消息日志数量
+        private int maxDays = 30;                   // 日志保留天数
     }
     
     @Data

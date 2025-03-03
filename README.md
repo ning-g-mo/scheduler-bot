@@ -191,10 +191,9 @@ mvn clean package
 
 ## 更新说明
 
-### v1.1.0
-- 支持在一个任务中设置多个目标
-- 优化消息发送机制
-- 添加更多安全保护措施
+### v1.1.1
+- 添加调试日志级别控制选项
+- 优化日志配置系统
 
 [查看完整更新日志](CHANGELOG.md)
 
@@ -224,6 +223,28 @@ scheduledTasks:
     duration: 3600
     sendNotice: true
     noticeContent: "成员 {memberId} 已被禁言 {duration}"
+
+bot:
+  log:
+    enableMessageLog: false     # 是否记录收到的消息
+    enableDebugLog: false      # 是否启用调试日志
+    includeInfoInNormal: true  # 是否在普通日志中包含INFO和MIXIN日志
+    maxMessageLogs: 1000       # 最大消息日志数量
+    maxDays: 30               # 日志保留天数
 ```
+
+## 日志配置说明
+
+```yaml
+bot:
+  log:
+    enableMessageLog: false     # 是否记录收到的消息
+    enableDebugLog: false      # 是否启用调试日志
+    includeInfoInNormal: true  # 是否在普通日志中包含INFO和MIXIN日志
+    maxMessageLogs: 1000       # 最大消息日志数量
+    maxDays: 30               # 日志保留天数
+```
+
+- `includeInfoInNormal`: 设置为 true 时，普通日志文件将包含 INFO 和 MIXIN 级别的日志；设置为 false 时，只包含 WARN 及以上级别的日志
 
 

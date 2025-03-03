@@ -3,10 +3,11 @@ bot:
   websocket: "ws://127.0.0.1:6700"  # OneBot WebSocket地址
   accessToken: ""  # 访问令牌（如果有）
   log:
-    enableMessageLog: false  # 是否记录收到的消息
-    enableDebugLog: false   # 是否启用调试日志
-    maxMessageLogs: 1000    # 最大消息日志数量
-    maxDays: 30            # 日志保留天数
+    enableMessageLog: false     # 是否记录收到的消息
+    enableDebugLog: false      # 是否启用调试日志
+    includeInfoInNormal: false  # 是否在普通日志中包含INFO和MIXIN日志
+    maxMessageLogs: 1000       # 最大消息日志数量
+    maxDays: 30               # 日志保留天数
   safety:
     enableMsgLimit: true           # 启用消息限制
     msgIntervalMs: 1500           # 消息最小间隔(毫秒)

@@ -29,6 +29,8 @@ public class Main {
                 String.valueOf(botConfig.getLog().isEnableMessageLog()));
         System.setProperty("bot.log.enableDebugLog", 
                 String.valueOf(botConfig.getLog().isEnableDebugLog()));
+        System.setProperty("bot.log.includeInfoInNormal", 
+                String.valueOf(botConfig.getLog().isIncludeInfoInNormal()));
         System.setProperty("bot.log.maxDays", 
                 String.valueOf(botConfig.getLog().getMaxDays()));
         
