@@ -22,6 +22,16 @@ public class Main {
     public static void main(String[] args) {
         // 设置默认字符编码
         System.setProperty("file.encoding", "UTF-8");
+        
+        // 设置日志配置
+        ConfigManager.BotConfig botConfig = ConfigManager.getInstance().getBotConfig();
+        System.setProperty("bot.log.enableMessageLog", 
+                String.valueOf(botConfig.getLog().isEnableMessageLog()));
+        System.setProperty("bot.log.enableDebugLog", 
+                String.valueOf(botConfig.getLog().isEnableDebugLog()));
+        System.setProperty("bot.log.maxDays", 
+                String.valueOf(botConfig.getLog().getMaxDays()));
+        
         logger.info("设置默认字符编码: UTF-8");
         
         // 创建日志目录

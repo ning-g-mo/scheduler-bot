@@ -120,8 +120,9 @@ public class ConfigManager {
         task1.setName("早安问候");
         task1.setType(TaskType.SEND_MESSAGE);
         task1.setTargetType("GROUP");
-        task1.setTargetId(123456789); // 示例群号，用户需要修改
-        task1.setCronExpression("0 30 7 * * ?"); // 每天早上7:30
+        task1.getTargetIds().add(123456789L); // 示例群号1
+        task1.getTargetIds().add(987654321L); // 示例群号2
+        task1.setCronExpression("0 30 7 * * ?");
         task1.setContent("早上好，今天也要元气满满哦！");
         tasks.add(task1);
         
@@ -130,7 +131,7 @@ public class ConfigManager {
         task2.setName("晚间提醒");
         task2.setType(TaskType.SEND_MESSAGE);
         task2.setTargetType("PRIVATE");
-        task2.setTargetId(987654321); // 示例QQ号，用户需要修改
+        task2.setTargetId(111222333); // 示例QQ号，用户需要修改
         task2.setCronExpression("0 0 22 * * ?"); // 每天晚上10点
         task2.setContent("该休息了，记得早点睡觉哦~");
         tasks.add(task2);
@@ -185,5 +186,25 @@ public class ConfigManager {
     public static class BotConfig {
         private String websocket;
         private String accessToken;
+        private LogConfig log = new LogConfig();
+        private SafetyConfig safety = new SafetyConfig();
+    }
+    
+    @Data
+    public static class LogConfig {
+        private boolean enableMessageLog = false;
+        private boolean enableDebugLog = false;
+        private int maxMessageLogs = 1000;
+        private int maxDays = 30;
+    }
+    
+    @Data
+    public static class SafetyConfig {
+        private boolean enableMsgLimit = true;
+        private int msgIntervalMs = 1500;
+        private int groupMsgLimit = 20;
+        private int privateMsgLimit = 10;
+        private int taskMinIntervalMs = 5000;
+        private boolean enableAutoRiskControl = true;
     }
 } 

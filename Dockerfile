@@ -3,7 +3,7 @@ FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
 # 复制JAR文件和启动脚本
-COPY target/scheduler-bot-1.0.jar /app/
+COPY target/scheduler-bot-1.1.0.jar /app/
 COPY start.sh /app/
 
 # 设置权限
@@ -26,4 +26,4 @@ ENV LC_ALL=zh_CN.UTF-8
 VOLUME ["/app/config.yml", "/app/logs", "/app/exports"]
 
 # 启动命令
-CMD ["java", "-Dfile.encoding=UTF-8", "-Dsun.stdout.encoding=UTF-8", "-Dsun.stderr.encoding=UTF-8", "-Xmx2G", "-jar", "scheduler-bot-1.0.jar"] 
+CMD ["java", "-Dfile.encoding=UTF-8", "-Dsun.stdout.encoding=UTF-8", "-Dsun.stderr.encoding=UTF-8", "-Xmx2G", "-jar", "scheduler-bot-1.1.0.jar"] 

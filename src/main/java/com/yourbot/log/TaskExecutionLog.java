@@ -2,6 +2,8 @@ package com.yourbot.log;
 
 import lombok.Data;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 任务执行日志实体类
@@ -27,7 +29,10 @@ public class TaskExecutionLog {
     private String targetType;
     
     // 目标ID（群号/QQ号）
-    private long targetId;
+    private List<Long> targetIds = new ArrayList<>();
+    
+    // 成员ID（如果有）
+    private List<Long> memberIds = new ArrayList<>();
     
     // 执行详情
     private String details;
@@ -40,5 +45,15 @@ public class TaskExecutionLog {
      */
     public static String generateId() {
         return java.util.UUID.randomUUID().toString();
+    }
+    
+    // 兼容旧版本的setter/getter
+    public void setTargetId(long targetId) {
+        this.targetIds.clear();
+        this.targetIds.add(targetId);
+    }
+    
+    public long getTargetId() {
+        return targetIds.isEmpty() ? 0 : targetIds.get(0);
     }
 } 

@@ -13,6 +13,8 @@ import com.yourbot.util.ConsoleUtil;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class OneBotClient {
     private static final Logger logger = LoggerFactory.getLogger(OneBotClient.class);
@@ -21,6 +23,19 @@ public class OneBotClient {
     private WebSocketClient client;
     private final ObjectMapper mapper = new ObjectMapper();
     private boolean connected = false;
+    
+    // 添加消息频率限制相关常量
+    private static final int MSG_INTERVAL_MS = 1500; // 消息最小间隔(毫秒)
+    private static final int GROUP_MSG_LIMIT = 20;   // 群消息每分钟限制
+    private static final int PRIVATE_MSG_LIMIT = 10; // 私聊消息每分钟限制
+    
+    // 添加消息计数器和时间记录
+    private final Map<Long, Integer> groupMsgCounter = new ConcurrentHashMap<>();
+    private final Map<Long, Integer> privateMsgCounter = new ConcurrentHashMap<>();
+    private long lastMsgTime = 0;
+    
+    // 添加消息长度限制
+    private static final int MAX_MESSAGE_LENGTH = 4500;
     
     private OneBotClient() {
         connect();
@@ -72,10 +87,21 @@ public class OneBotClient {
                 public void onMessage(String message) {
                     try {
                         logger.debug("收到消息: {}", message);
-                        ConsoleUtil.debug("收到OneBot消息: " + message.substring(0, Math.min(100, message.length())) + 
-                                (message.length() > 100 ? "..." : ""));
+                        
+                        // 检查是否启用消息日志
+                        if (ConfigManager.getInstance().getBotConfig().getLog().isEnableMessageLog()) {
+                            ConsoleUtil.debug("收到OneBot消息: " + message.substring(0, Math.min(100, message.length())) + 
+                                    (message.length() > 100 ? "..." : ""));
+                        }
+                        
                         JsonNode json = mapper.readTree(message);
-                        // 处理接收到的消息
+                        
+                        // 如果是心跳消息且未启用调试日志，则不记录
+                        if (isHeartbeatMessage(json) && !ConfigManager.getInstance().getBotConfig().getLog().isEnableDebugLog()) {
+                            return;
+                        }
+                        
+                        // 处理消息...
                     } catch (Exception e) {
                         logger.error("处理消息失败", e);
                         ConsoleUtil.error("处理消息失败: " + e.getMessage());
@@ -85,22 +111,9 @@ public class OneBotClient {
                 @Override
                 public void onClose(int code, String reason, boolean remote) {
                     connected = false;
-                    logger.warn("与OneBot服务器的连接已关闭: 代码={}, 原因={}, 远程关闭={}", code, reason, remote);
-                    ConsoleUtil.warn("与OneBot服务器的连接已关闭: 代码=" + code + ", 原因=" + reason);
-                    
-                    // 尝试重新连接
-                    logger.info("5秒后尝试重新连接...");
-                    ConsoleUtil.info("5秒后尝试重新连接...");
-                    new Thread(() -> {
-                        try {
-                            Thread.sleep(5000);
-                            connect();
-                        } catch (InterruptedException e) {
-                            logger.error("重连线程被中断", e);
-                            ConsoleUtil.error("重连线程被中断: " + e.getMessage());
-                            Thread.currentThread().interrupt();
-                        }
-                    }).start();
+                    logger.warn("WebSocket连接已断开: code={}, reason={}, remote={}", code, reason, remote);
+                    ConsoleUtil.warn("WebSocket连接已断开，尝试重连...");
+                    reconnect();
                 }
                 
                 @Override
@@ -141,32 +154,44 @@ public class OneBotClient {
     
     public void sendGroupMessage(long groupId, String message) {
         try {
-            if (!isConnected()) {
-                logger.warn("未连接到OneBot服务器，无法发送群消息");
-                System.err.println("未连接到OneBot服务器，无法发送群消息");
+            // 检查消息长度
+            if (message.length() > MAX_MESSAGE_LENGTH) {
+                logger.warn("消息长度超过限制({})，已截断", MAX_MESSAGE_LENGTH);
+                message = message.substring(0, MAX_MESSAGE_LENGTH);
+            }
+            
+            // 检查消息频率
+            if (!checkMessageFrequency(groupId, true)) {
+                logger.warn("群 {} 消息发送过于频繁，已暂停发送", groupId);
                 return;
             }
             
-            logger.info("发送群消息到 {}: {}", groupId, message);
+            // 检查是否连接
+            if (!isConnected()) {
+                logger.warn("未连接到OneBot服务器，无法发送群消息");
+                return;
+            }
             
+            // 构建消息
             ObjectNode json = mapper.createObjectNode();
             json.put("action", "send_group_msg");
             
             ObjectNode params = mapper.createObjectNode();
             params.put("group_id", groupId);
-            params.put("message", new String(message.getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8));
+            params.put("message", message);
+            params.put("auto_escape", false);
             
             json.set("params", params);
             json.put("echo", UUID.randomUUID().toString());
             
             String jsonStr = json.toString();
-            logger.debug("发送WebSocket消息: {}", jsonStr);
             client.send(jsonStr);
             
-            System.out.println("已发送群消息到 " + groupId + ": " + message);
+            // 更新最后发送时间
+            lastMsgTime = System.currentTimeMillis();
+            
         } catch (Exception e) {
             logger.error("发送群消息失败", e);
-            System.err.println("发送群消息失败: " + e.getMessage());
         }
     }
     
@@ -265,6 +290,66 @@ public class OneBotClient {
         } catch (Exception e) {
             logger.error("设置成员禁言失败", e);
             System.err.println("设置成员禁言失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 判断是否为心跳消息
+     */
+    private boolean isHeartbeatMessage(JsonNode json) {
+        return json.has("meta_event_type") && 
+               "heartbeat".equals(json.get("meta_event_type").asText());
+    }
+    
+    // 添加消息频率检查方法
+    private boolean checkMessageFrequency(long targetId, boolean isGroup) {
+        long currentTime = System.currentTimeMillis();
+        
+        // 检查全局消息间隔
+        if (currentTime - lastMsgTime < MSG_INTERVAL_MS) {
+            return false;
+        }
+        
+        Map<Long, Integer> counter = isGroup ? groupMsgCounter : privateMsgCounter;
+        int limit = isGroup ? GROUP_MSG_LIMIT : PRIVATE_MSG_LIMIT;
+        
+        // 获取当前计数
+        int count = counter.getOrDefault(targetId, 0);
+        
+        // 每分钟重置计数
+        if (currentTime - lastMsgTime > 60000) {
+            counter.clear();
+            count = 0;
+        }
+        
+        // 检查是否超过限制
+        if (count >= limit) {
+            return false;
+        }
+        
+        // 更新计数
+        counter.put(targetId, count + 1);
+        return true;
+    }
+    
+    // 添加风控检测方法
+    private void handleResponse(JsonNode response) {
+        if (response.has("retcode")) {
+            int retcode = response.get("retcode").asInt();
+            if (retcode == 100) { // 风控码
+                logger.error("消息发送失败：账号可能被风控");
+                ConsoleUtil.error("警告：账号可能被风控，建议降低发送频率");
+            }
+        }
+    }
+    
+    // 添加重连机制
+    private void reconnect() {
+        try {
+            Thread.sleep(5000); // 等待5秒后重连
+            connect();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 } 

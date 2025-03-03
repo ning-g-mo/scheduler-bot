@@ -189,4 +189,41 @@ mvn clean package
 
 本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件
 
+## 更新说明
+
+### v1.1.0
+- 支持在一个任务中设置多个目标
+- 优化消息发送机制
+- 添加更多安全保护措施
+
+[查看完整更新日志](CHANGELOG.md)
+
+## 配置示例
+
+```yaml
+scheduledTasks:
+  - name: "群发消息"
+    type: "SEND_MESSAGE"
+    targetType: "GROUP"
+    targetIds:  # 支持多个群
+      - 123456789
+      - 987654321
+    cronExpression: "0 30 7 * * ?"
+    content: "早上好！"
+
+  - name: "批量禁言"
+    type: "GROUP_BAN_MEMBER"
+    targetType: "GROUP"
+    targetIds:  # 要操作的群
+      - 123456789
+      - 987654321
+    memberIds:  # 要禁言的成员
+      - 111222333
+      - 444555666
+    cronExpression: "0 0 12 * * ?"
+    duration: 3600
+    sendNotice: true
+    noticeContent: "成员 {memberId} 已被禁言 {duration}"
+```
+
 

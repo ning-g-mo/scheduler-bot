@@ -24,21 +24,51 @@
         </encoder>
     </appender>
     
-    <!-- 详细的调试日志文件 -->
-    <appender name="DEBUG_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>logs/debug.log</file>
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>logs/debug.%d{yyyy-MM-dd}.log</fileNamePattern>
-            <maxHistory>7</maxHistory>
-        </rollingPolicy>
-        <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
-            <charset>UTF-8</charset>
-        </encoder>
-        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-            <level>DEBUG</level>
-        </filter>
-    </appender>
+    <!-- 在 root 标签前添加条件配置 -->
+    <if condition='property("bot.log.enableDebugLog").equals("true")'>
+        <then>
+            <!-- 详细的调试日志文件 -->
+            <appender name="DEBUG_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+                <file>logs/debug.log</file>
+                <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+                    <fileNamePattern>logs/debug.%d{yyyy-MM-dd}.log</fileNamePattern>
+                    <maxHistory>${bot.log.maxDays:-30}</maxHistory>
+                </rollingPolicy>
+                <encoder>
+                    <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+                    <charset>UTF-8</charset>
+                </encoder>
+                <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+                    <level>DEBUG</level>
+                </filter>
+            </appender>
+            
+            <logger name="com.yourbot" level="DEBUG">
+                <appender-ref ref="DEBUG_FILE" />
+            </logger>
+        </then>
+    </if>
+    
+    <!-- 消息日志文件 -->
+    <if condition='property("bot.log.enableMessageLog").equals("true")'>
+        <then>
+            <appender name="MESSAGE_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+                <file>logs/messages.log</file>
+                <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+                    <fileNamePattern>logs/messages.%d{yyyy-MM-dd}.log</fileNamePattern>
+                    <maxHistory>${bot.log.maxDays:-30}</maxHistory>
+                </rollingPolicy>
+                <encoder>
+                    <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} - %msg%n</pattern>
+                    <charset>UTF-8</charset>
+                </encoder>
+            </appender>
+            
+            <logger name="com.yourbot.onebot.messages" level="INFO" additivity="false">
+                <appender-ref ref="MESSAGE_FILE" />
+            </logger>
+        </then>
+    </if>
     
     <!-- 设置日志级别 -->
     <root level="INFO">

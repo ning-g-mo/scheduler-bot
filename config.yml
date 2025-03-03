@@ -2,57 +2,85 @@
 bot:
   websocket: "ws://127.0.0.1:6700"  # OneBot WebSocket地址
   accessToken: ""  # 访问令牌（如果有）
+  log:
+    enableMessageLog: false  # 是否记录收到的消息
+    enableDebugLog: false   # 是否启用调试日志
+    maxMessageLogs: 1000    # 最大消息日志数量
+    maxDays: 30            # 日志保留天数
+  safety:
+    enableMsgLimit: true           # 启用消息限制
+    msgIntervalMs: 1500           # 消息最小间隔(毫秒)
+    groupMsgLimit: 20             # 群消息每分钟限制
+    privateMsgLimit: 10           # 私聊消息每分钟限制
+    taskMinIntervalMs: 5000       # 任务最小执行间隔
+    enableAutoRiskControl: true    # 启用自动风控保护
 
 # 定时任务配置
 scheduledTasks:
-  - name: "早安问候"  # 任务名称
-    type: "SEND_MESSAGE"  # 任务类型
-    targetType: "GROUP"  # 目标类型：GROUP或PRIVATE
-    targetId: 123456789  # 群号或QQ号
-    cronExpression: "0 30 7 * * ?"  # 每天早上7:30执行
-    content: "早上好，今天也要元气满满哦！"  # 发送的消息内容
+  - name: "早安问候"
+    type: "SEND_MESSAGE"
+    targetType: "GROUP"
+    targetIds:  # 支持多个群
+      - 123456789
+      - 987654321
+    cronExpression: "0 30 7 * * ?"
+    content: "早上好，今天也要元气满满哦！"
     
   - name: "晚间提醒"
     type: "SEND_MESSAGE"
     targetType: "PRIVATE"
-    targetId: 987654321
-    cronExpression: "0 0 22 * * ?"  # 每天晚上10点执行
+    targetIds:  # 支持多个好友
+      - 111222333
+      - 444555666
+    cronExpression: "0 0 22 * * ?"
     content: "该休息了，记得早点睡觉哦~"
     
   - name: "周末全体禁言"
     type: "GROUP_BAN_ALL"
     targetType: "GROUP"
-    targetId: 123456789
-    cronExpression: "0 0 23 ? * FRI"  # 每周五晚上11点执行
-    enable: true  # true表示开启全体禁言，false表示关闭
-    sendNotice: true  # 是否发送通知消息
-    noticeContent: "周末愉快！全体禁言开启，请各位周一见~"  # 通知消息内容
+    targetIds:  # 支持多个群
+      - 123456789
+      - 987654321
+    cronExpression: "0 0 23 ? * FRI"
+    enable: true
+    sendNotice: true
+    noticeContent: "周末愉快！全体禁言开启，请各位周一见~"
     
   - name: "周一解除全体禁言"
     type: "GROUP_BAN_ALL"
     targetType: "GROUP"
-    targetId: 123456789
-    cronExpression: "0 0 8 ? * MON"  # 每周一早上8点执行
-    enable: false  # false表示关闭全体禁言
-    sendNotice: true  # 是否发送通知消息
-    noticeContent: "早上好！新的一周开始了，全体禁言已解除~"  # 通知消息内容
+    targetIds:  # 修改为数组格式
+      - 123456789
+      - 987654321
+    cronExpression: "0 0 8 ? * MON"
+    enable: false
+    sendNotice: true
+    noticeContent: "早上好！新的一周开始了，全体禁言已解除~"
     
   - name: "特定用户禁言"
     type: "GROUP_BAN_MEMBER"
     targetType: "GROUP"
-    targetId: 123456789
-    memberId: 111222333  # 要禁言的成员QQ号
-    cronExpression: "0 0 12 * * ?"  # 每天中午12点执行
-    duration: 3600  # 禁言时长（秒），0表示解除禁言
-    sendNotice: true  # 是否发送通知消息
-    noticeContent: "成员 {memberId} 已被禁言 {duration}，请遵守群规则。"  # 通知消息内容，支持变量替换
+    targetIds:  # 要操作的群
+      - 123456789
+      - 987654321
+    memberIds:  # 要禁言的成员
+      - 111222333
+      - 444555666
+    cronExpression: "0 0 12 * * ?"
+    duration: 3600
+    sendNotice: true
+    noticeContent: "成员 {memberId} 已被禁言 {duration}，请遵守群规则。"
     
   - name: "特定用户解禁"
     type: "GROUP_BAN_MEMBER"
     targetType: "GROUP"
-    targetId: 123456789
-    memberId: 111222333  # 要解禁的成员QQ号
-    cronExpression: "0 0 13 * * ?"  # 每天下午1点执行
-    duration: 0  # 禁言时长为0表示解除禁言
-    sendNotice: true  # 是否发送通知消息
-    noticeContent: "成员 {memberId} 的禁言已解除，希望遵守群规则。"  # 通知消息内容，支持变量替换
+    targetIds:  # 修改为数组格式
+      - 123456789
+      - 987654321
+    memberIds:  # 修改为数组格式
+      - 111222333
+      - 444555666
+    cronExpression: "0 0 13 * * ?"
+    duration: 0
+    sendNotice: true
+    noticeContent: "成员 {memberId} 的禁言已解除，希望遵守群规则。"

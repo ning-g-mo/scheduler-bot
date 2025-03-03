@@ -22,6 +22,13 @@ public class SchedulerManager {
     private Scheduler scheduler;
     private OneBotClient oneBotClient;
     
+    // 修改为静态变量
+    private static final long MIN_TASK_INTERVAL = 5000; // 最小任务执行间隔(毫秒)
+    private static volatile long lastTaskExecutionTime = 0; // 修改为静态变量，并添加volatile保证线程安全
+    
+    private static final int MAX_RETRY_COUNT = 3;
+    private static final long RETRY_DELAY_MS = 1000;
+    
     private SchedulerManager() {
         try {
             logger.debug("初始化Quartz调度器");
@@ -111,7 +118,7 @@ public class SchedulerManager {
         
         logger.info("已加载定时任务: {} ({})", task.getName(), task.getCronExpression());
         logger.debug("任务详情: 类型={}, 目标类型={}, 目标ID={}", 
-                task.getType(), task.getTargetType(), task.getTargetId());
+                task.getType(), task.getTargetType(), task.getTargetIds());
         
         // 计算下一次执行时间
         Date nextFireTime = trigger.getNextFireTime();
@@ -126,113 +133,138 @@ public class SchedulerManager {
         
         @Override
         public void execute(JobExecutionContext context) throws JobExecutionException {
-            JobDataMap dataMap = context.getJobDetail().getJobDataMap();
-            ScheduledTask task = (ScheduledTask) dataMap.get("task");
-            OneBotClient client = (OneBotClient) dataMap.get("oneBotClient");
+            int retryCount = 0;
+            Exception lastException = null;
             
-            // 创建任务执行日志
-            TaskExecutionLog log = new TaskExecutionLog();
-            log.setId(TaskExecutionLog.generateId());
-            log.setTaskName(task.getName());
-            log.setTaskType(task.getType().toString());
-            log.setExecutionTime(LocalDateTime.now());
-            log.setTargetType(task.getTargetType());
-            log.setTargetId(task.getTargetId());
-            log.setSuccess(true); // 默认为成功，如果出错会设置为失败
-            
-            jobLogger.info("执行定时任务: {}", task.getName());
-            ConsoleUtil.task(task.getName(), "开始执行");
-            
-            try {
-                StringBuilder details = new StringBuilder();
-                
-                switch (task.getType()) {
-                    case SEND_MESSAGE:
-                        if ("GROUP".equals(task.getTargetType())) {
-                            jobLogger.info("发送群消息到 {}: {}", task.getTargetId(), task.getContent());
-                            ConsoleUtil.task(task.getName(), "发送群消息到 " + task.getTargetId());
-                            client.sendGroupMessage(task.getTargetId(), task.getContent());
-                            details.append("发送群消息到 ").append(task.getTargetId()).append(": ")
-                                   .append(task.getContent());
-                        } else if ("PRIVATE".equals(task.getTargetType())) {
-                            jobLogger.info("发送私聊消息到 {}: {}", task.getTargetId(), task.getContent());
-                            ConsoleUtil.task(task.getName(), "发送私聊消息到 " + task.getTargetId());
-                            client.sendPrivateMessage(task.getTargetId(), task.getContent());
-                            details.append("发送私聊消息到 ").append(task.getTargetId()).append(": ")
-                                   .append(task.getContent());
-                        } else {
-                            jobLogger.warn("未知的目标类型: {}", task.getTargetType());
-                            ConsoleUtil.warn("未知的目标类型: " + task.getTargetType());
-                            details.append("未知的目标类型: ").append(task.getTargetType());
-                        }
-                        break;
-                        
-                    case GROUP_BAN_ALL:
-                        jobLogger.info("设置群 {} 全体禁言: {}", task.getTargetId(), task.isEnable());
-                        ConsoleUtil.task(task.getName(), "设置群 " + task.getTargetId() + " 全体" + (task.isEnable() ? "禁言" : "解禁"));
-                        client.setGroupWholeBan(task.getTargetId(), task.isEnable());
-                        details.append("设置群 ").append(task.getTargetId()).append(" 全体")
-                               .append(task.isEnable() ? "禁言" : "解禁");
-                        
-                        // 发送禁言/解禁通知
-                        if (task.isSendNotice() && task.getNoticeContent() != null && !task.getNoticeContent().isEmpty()) {
-                            String noticeMsg = task.getNoticeContent();
-                            jobLogger.info("发送全体{}通知: {}", task.isEnable() ? "禁言" : "解禁", noticeMsg);
-                            ConsoleUtil.task(task.getName(), "发送全体" + (task.isEnable() ? "禁言" : "解禁") + "通知");
-                            client.sendGroupMessage(task.getTargetId(), noticeMsg);
-                            details.append(", 发送通知: ").append(noticeMsg);
-                        }
-                        break;
-                        
-                    case GROUP_BAN_MEMBER:
-                        jobLogger.info("设置群 {} 成员 {} 禁言 {} 秒", 
-                                task.getTargetId(), task.getMemberId(), task.getDuration());
-                        ConsoleUtil.task(task.getName(), "设置群 " + task.getTargetId() + " 成员 " + task.getMemberId() + 
-                                (task.getDuration() > 0 ? " 禁言 " + formatDuration(task.getDuration()) : " 解除禁言"));
-                        client.setGroupBan(task.getTargetId(), task.getMemberId(), task.getDuration());
-                        details.append("设置群 ").append(task.getTargetId()).append(" 成员 ")
-                               .append(task.getMemberId()).append(" ")
-                               .append(task.getDuration() > 0 ? "禁言 " + formatDuration(task.getDuration()) : "解除禁言");
-                        
-                        // 发送禁言/解禁通知
-                        if (task.isSendNotice() && task.getNoticeContent() != null && !task.getNoticeContent().isEmpty()) {
-                            String noticeMsg = task.getNoticeContent();
-                            // 替换变量
-                            noticeMsg = noticeMsg.replace("{memberId}", String.valueOf(task.getMemberId()))
-                                                .replace("{duration}", formatDuration(task.getDuration()));
+            while (retryCount < MAX_RETRY_COUNT) {
+                try {
+                    // 检查任务执行间隔
+                    long currentTime = System.currentTimeMillis();
+                    if (currentTime - lastTaskExecutionTime < MIN_TASK_INTERVAL) {
+                        logger.warn("任务执行间隔过短，已跳过本次执行");
+                        return;
+                    }
+                    
+                    JobDataMap dataMap = context.getJobDetail().getJobDataMap();
+                    ScheduledTask task = (ScheduledTask) dataMap.get("task");
+                    OneBotClient client = (OneBotClient) dataMap.get("oneBotClient");
+                    
+                    // 创建任务执行日志
+                    TaskExecutionLog log = new TaskExecutionLog();
+                    log.setId(TaskExecutionLog.generateId());
+                    log.setTaskName(task.getName());
+                    log.setTaskType(task.getType().toString());
+                    log.setExecutionTime(LocalDateTime.now());
+                    log.setTargetType(task.getTargetType());
+                    log.setTargetIds(task.getTargetIds());
+                    log.setSuccess(true); // 默认为成功，如果出错会设置为失败
+                    
+                    jobLogger.info("执行定时任务: {}", task.getName());
+                    ConsoleUtil.task(task.getName(), "开始执行");
+                    
+                    StringBuilder details = new StringBuilder();
+                    
+                    switch (task.getType()) {
+                        case SEND_MESSAGE:
+                            // 发送消息到所有目标
+                            for (long targetId : task.getTargetIds()) {
+                                if ("GROUP".equals(task.getTargetType())) {
+                                    jobLogger.info("发送群消息到 {}: {}", targetId, task.getContent());
+                                    ConsoleUtil.task(task.getName(), "发送群消息到 " + targetId);
+                                    client.sendGroupMessage(targetId, task.getContent());
+                                    details.append("发送群消息到 ").append(targetId);
+                                } else if ("PRIVATE".equals(task.getTargetType())) {
+                                    jobLogger.info("发送私聊消息到 {}: {}", targetId, task.getContent());
+                                    ConsoleUtil.task(task.getName(), "发送私聊消息到 " + targetId);
+                                    client.sendPrivateMessage(targetId, task.getContent());
+                                    details.append("发送私聊消息到 ").append(targetId);
+                                }
+                                details.append("; ");
+                            }
+                            break;
                             
-                            jobLogger.info("发送成员{}通知: {}", task.getDuration() > 0 ? "禁言" : "解禁", noticeMsg);
-                            ConsoleUtil.task(task.getName(), "发送成员" + (task.getDuration() > 0 ? "禁言" : "解禁") + "通知");
-                            client.sendGroupMessage(task.getTargetId(), noticeMsg);
-                            details.append(", 发送通知: ").append(noticeMsg);
+                        case GROUP_BAN_ALL:
+                            // 设置所有群的全体禁言状态
+                            for (long groupId : task.getTargetIds()) {
+                                jobLogger.info("设置群 {} 全体禁言: {}", groupId, task.isEnable());
+                                ConsoleUtil.task(task.getName(), "设置群 " + groupId + " 全体" + (task.isEnable() ? "禁言" : "解禁"));
+                                client.setGroupWholeBan(groupId, task.isEnable());
+                                details.append(task.isEnable() ? "开启" : "关闭")
+                                       .append("群 ").append(groupId).append(" 的全体禁言; ");
+                                
+                                if (task.isSendNotice()) {
+                                    jobLogger.info("发送全体{}通知: {}", task.isEnable() ? "禁言" : "解禁", task.getNoticeContent());
+                                    ConsoleUtil.task(task.getName(), "发送全体" + (task.isEnable() ? "禁言" : "解禁") + "通知");
+                                    client.sendGroupMessage(groupId, task.getNoticeContent());
+                                    details.append("发送通知到群 ").append(groupId).append("; ");
+                                }
+                            }
+                            break;
+                            
+                        case GROUP_BAN_MEMBER:
+                            // 为每个群的每个成员设置禁言
+                            for (long groupId : task.getTargetIds()) {
+                                for (long memberId : task.getMemberIds()) {
+                                    jobLogger.info("设置群 {} 成员 {} 禁言 {} 秒", 
+                                            groupId, memberId, task.getDuration());
+                                    ConsoleUtil.task(task.getName(), "设置群 " + groupId + " 成员 " + memberId + 
+                                            (task.getDuration() > 0 ? " 禁言 " + formatDuration(task.getDuration()) : " 解除禁言"));
+                                    client.setGroupBan(groupId, memberId, task.getDuration());
+                                    details.append(task.getDuration() > 0 ? "禁言" : "解除禁言")
+                                           .append("群 ").append(groupId)
+                                           .append(" 的成员 ").append(memberId).append("; ");
+                                    
+                                    if (task.isSendNotice()) {
+                                        String noticeMsg = task.getNoticeContent()
+                                            .replace("{memberId}", String.valueOf(memberId))
+                                            .replace("{duration}", formatDuration(task.getDuration()));
+                                        jobLogger.info("发送成员{}通知: {}", task.getDuration() > 0 ? "禁言" : "解禁", noticeMsg);
+                                        ConsoleUtil.task(task.getName(), "发送成员" + (task.getDuration() > 0 ? "禁言" : "解禁") + "通知");
+                                        client.sendGroupMessage(groupId, noticeMsg);
+                                        details.append("发送通知到群 ").append(groupId).append("; ");
+                                    }
+                                }
+                            }
+                            break;
+                            
+                        default:
+                            jobLogger.warn("未知的任务类型: {}", task.getType());
+                            ConsoleUtil.warn("未知的任务类型: " + task.getType());
+                            details.append("未知的任务类型: ").append(task.getType());
+                            break;
+                    }
+                    
+                    jobLogger.info("任务 {} 执行完成", task.getName());
+                    ConsoleUtil.task(task.getName(), "执行完成");
+                    
+                    // 设置日志详情并记录
+                    log.setDetails(details.toString());
+                    TaskLogManager.getInstance().logTaskExecution(log);
+                    
+                    // 更新最后执行时间
+                    lastTaskExecutionTime = currentTime;
+                    
+                    return; // 执行成功，退出重试循环
+                } catch (Exception e) {
+                    lastException = e;
+                    retryCount++;
+                    
+                    if (retryCount < MAX_RETRY_COUNT) {
+                        try {
+                            logger.warn("任务执行失败，{}秒后重试 ({}/{})", 
+                                RETRY_DELAY_MS/1000, retryCount, MAX_RETRY_COUNT);
+                            Thread.sleep(RETRY_DELAY_MS);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            throw new JobExecutionException("任务重试被中断", ie);
                         }
-                        break;
-                        
-                    default:
-                        jobLogger.warn("未知的任务类型: {}", task.getType());
-                        ConsoleUtil.warn("未知的任务类型: " + task.getType());
-                        details.append("未知的任务类型: ").append(task.getType());
-                        break;
+                    }
                 }
-                
-                jobLogger.info("任务 {} 执行完成", task.getName());
-                ConsoleUtil.task(task.getName(), "执行完成");
-                
-                // 设置日志详情并记录
-                log.setDetails(details.toString());
-                TaskLogManager.getInstance().logTaskExecution(log);
-                
-            } catch (Exception e) {
-                jobLogger.error("执行定时任务失败: {}", task.getName(), e);
-                ConsoleUtil.error("执行定时任务失败: " + task.getName() + " - " + e.getMessage());
-                e.printStackTrace();
-                
-                // 设置日志为失败并记录错误信息
-                log.setSuccess(false);
-                log.setErrorMessage(e.getMessage());
-                TaskLogManager.getInstance().logTaskExecution(log);
-                
-                throw new JobExecutionException(e);
+            }
+            
+            // 所有重试都失败
+            if (lastException != null) {
+                throw new JobExecutionException(lastException);
             }
         }
         
