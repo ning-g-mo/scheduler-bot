@@ -1,0 +1,29 @@
+目录
+    src/
+    ├── main/
+    │   ├── java/
+    │   │   └── com/
+    │   │       └── yourbot/
+    │   │           ├── Main.java
+    │   │           ├── config/
+    │   │           │   └── ConfigManager.java
+    │   │           ├── scheduler/
+    │   │           │   ├── SchedulerManager.java
+    │   │           │   ├── ScheduledTask.java
+    │   │           │   └── TaskType.java
+    │   │           └── onebot/
+    │   │               └── OneBotClient.java
+    │   └── resources/
+    │       └── config.yml
+
+
+提示词
+    定时任务
+    JAVA程序
+    使用JAVA21构建
+    使用onebot11协议
+    配置方法在程序根目录下config.yml保存
+    程序启动后是cmd窗口
+    reload命令可以重载配置文件
+
+    定时任务可执行给好友或者群聊在某个时间点或者隔一段时间执行发消息任务，群聊可执行全体禁言，全体解禁，针对禁言或解禁QQ等
