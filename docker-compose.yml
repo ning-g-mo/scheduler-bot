@@ -1,0 +1,20 @@
+version: '3'
+
+services:
+  scheduler-bot:
+    build: .
+    container_name: scheduler-bot
+    restart: unless-stopped
+    volumes:
+      - ./config.yml:/app/config.yml
+      - ./logs:/app/logs
+      - ./exports:/app/exports
+    environment:
+      - TZ=Asia/Shanghai
+    # 如果需要与其他容器通信，可以添加网络配置
+    # networks:
+    #   - bot-network
+
+# networks:
+#   bot-network:
+#     external: true 
