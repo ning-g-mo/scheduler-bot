@@ -1,6 +1,7 @@
 package com.yourbot;
 
 import com.yourbot.config.ConfigManager;
+import com.yourbot.gui.GuiManager;
 import com.yourbot.scheduler.SchedulerManager;
 import com.yourbot.util.ConsoleUtil;
 import org.slf4j.Logger;
@@ -12,14 +13,21 @@ import java.util.Scanner;
 import java.util.List;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 
 import com.yourbot.log.TaskExecutionLog;
 import com.yourbot.log.TaskLogManager;
 
 public class Main {
     private static final Logger logger = LoggerFactory.getLogger(Main.class);
+    private static boolean guiMode = true;
     
     public static void main(String[] args) {
+        // 检查命令行参数
+        if (Arrays.asList(args).contains("nogui")) {
+            guiMode = false;
+        }
+        
         // 设置默认字符编码
         System.setProperty("file.encoding", "UTF-8");
         
@@ -35,6 +43,9 @@ public class Main {
                 String.valueOf(botConfig.getLog().getMaxDays()));
         
         logger.info("设置默认字符编码: UTF-8");
+        
+        // 设置是否启用GUI
+        ConsoleUtil.setGuiEnabled(guiMode);
         
         // 创建日志目录
         File logDir = new File("logs");
@@ -61,34 +72,21 @@ public class Main {
             SchedulerManager schedulerManager = SchedulerManager.getInstance();
             schedulerManager.loadTasks();
             
+            // 初始化GUI界面
+            if (guiMode) {
+                GuiManager.getInstance().initGui(Main::handleCommand);
+            }
+            
             // 命令行交互
-            Scanner scanner = new Scanner(System.in, StandardCharsets.UTF_8.name());
             logger.info("机器人已启动，输入 'reload' 重新加载配置，输入 'exit' 退出程序");
             ConsoleUtil.success("机器人已启动，输入 'reload' 重新加载配置，输入 'exit' 退出程序");
             
-            while (true) {
-                String command = scanner.nextLine().trim();
-                
-                if ("reload".equalsIgnoreCase(command)) {
-                    logger.info("用户请求重新加载配置");
-                    ConsoleUtil.info("正在重新加载配置...");
-                    configManager.loadConfig();
-                    schedulerManager.loadTasks();
-                    logger.info("配置重新加载完成");
-                    ConsoleUtil.success("配置重新加载完成");
-                } else if ("exit".equalsIgnoreCase(command)) {
-                    logger.info("用户请求退出程序");
-                    ConsoleUtil.info("正在关闭程序...");
-                    System.exit(0);
-                } else if ("help".equalsIgnoreCase(command)) {
-                    logger.info("用户请求帮助信息");
-                    showHelpInfo();
-                } else if (command.startsWith("logs")) {
-                    logger.info("用户请求查看日志");
-                    handleLogsCommand(command);
-                } else {
-                    logger.debug("用户输入了未知命令: {}", command);
-                    ConsoleUtil.warn("未知命令，输入 'help' 查看可用命令");
+            // 控制台模式下使用Scanner获取输入
+            if (!guiMode) {
+                Scanner scanner = new Scanner(System.in, StandardCharsets.UTF_8.name());
+                while (true) {
+                    String command = scanner.nextLine().trim();
+                    handleCommand(command);
                 }
             }
         } catch (Exception e) {
@@ -293,5 +291,32 @@ public class Main {
         }
         
         ConsoleUtil.success("任务日志已导出到文件: " + filePath);
+    }
+
+    /**
+     * 处理用户输入的命令
+     */
+    private static void handleCommand(String command) {
+        if ("reload".equalsIgnoreCase(command)) {
+            logger.info("用户请求重新加载配置");
+            ConsoleUtil.info("正在重新加载配置...");
+            ConfigManager.getInstance().loadConfig();
+            SchedulerManager.getInstance().loadTasks();
+            logger.info("配置重新加载完成");
+            ConsoleUtil.success("配置重新加载完成");
+        } else if ("exit".equalsIgnoreCase(command)) {
+            logger.info("用户请求退出程序");
+            ConsoleUtil.info("正在关闭程序...");
+            System.exit(0);
+        } else if ("help".equalsIgnoreCase(command)) {
+            logger.info("用户请求帮助信息");
+            showHelpInfo();
+        } else if (command.startsWith("logs")) {
+            logger.info("用户请求查看日志");
+            handleLogsCommand(command);
+        } else {
+            logger.debug("用户输入了未知命令: {}", command);
+            ConsoleUtil.warn("未知命令，输入 'help' 查看可用命令");
+        }
     }
 } 

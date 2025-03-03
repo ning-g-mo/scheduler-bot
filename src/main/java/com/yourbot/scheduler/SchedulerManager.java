@@ -300,4 +300,11 @@ public class SchedulerManager {
             return sb.toString();
         }
     }
+    
+    /**
+     * 获取任务的触发器
+     */
+    public Trigger getTrigger(String taskName) throws SchedulerException {
+        return scheduler.getTrigger(TriggerKey.triggerKey(taskName + "_trigger", "tasks"));
+    }
 } 

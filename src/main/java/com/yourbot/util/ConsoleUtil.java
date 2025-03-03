@@ -1,5 +1,6 @@
 package com.yourbot.util;
 
+import com.yourbot.gui.GuiManager;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -24,11 +25,21 @@ public class ConsoleUtil {
     // 是否启用颜色输出
     private static boolean colorEnabled = true;
     
+    // 是否启用GUI
+    private static boolean guiEnabled = false;
+    
     /**
      * 设置是否启用颜色输出
      */
     public static void setColorEnabled(boolean enabled) {
         colorEnabled = enabled;
+    }
+    
+    /**
+     * 设置是否启用GUI
+     */
+    public static void setGuiEnabled(boolean enabled) {
+        guiEnabled = enabled;
     }
     
     /**
@@ -47,6 +58,10 @@ public class ConsoleUtil {
         } else {
             System.out.println(timestamp() + " [INFO] " + message);
         }
+        
+        if (guiEnabled) {
+            GuiManager.getInstance().appendLog(timestamp() + " [INFO] " + message, "INFO");
+        }
     }
     
     /**
@@ -57,6 +72,10 @@ public class ConsoleUtil {
             System.out.println(timestamp() + " " + ANSI_BLUE + "[DEBUG] " + ANSI_RESET + message);
         } else {
             System.out.println(timestamp() + " [DEBUG] " + message);
+        }
+        
+        if (guiEnabled) {
+            GuiManager.getInstance().appendLog(timestamp() + " [DEBUG] " + message, "DEBUG");
         }
     }
     
@@ -69,6 +88,10 @@ public class ConsoleUtil {
         } else {
             System.out.println(timestamp() + " [WARN] " + message);
         }
+        
+        if (guiEnabled) {
+            GuiManager.getInstance().appendLog(timestamp() + " [WARN] " + message, "WARN");
+        }
     }
     
     /**
@@ -79,6 +102,10 @@ public class ConsoleUtil {
             System.err.println(timestamp() + " " + ANSI_RED + "[ERROR] " + ANSI_RESET + message);
         } else {
             System.err.println(timestamp() + " [ERROR] " + message);
+        }
+        
+        if (guiEnabled) {
+            GuiManager.getInstance().appendLog(timestamp() + " [ERROR] " + message, "ERROR");
         }
     }
     
@@ -91,6 +118,10 @@ public class ConsoleUtil {
         } else {
             System.out.println(timestamp() + " [SUCCESS] " + message);
         }
+        
+        if (guiEnabled) {
+            GuiManager.getInstance().appendLog(timestamp() + " [SUCCESS] " + message, "SUCCESS");
+        }
     }
     
     /**
@@ -101,6 +132,10 @@ public class ConsoleUtil {
             System.out.println(timestamp() + " " + ANSI_CYAN + "[TASK:" + taskName + "] " + ANSI_RESET + message);
         } else {
             System.out.println(timestamp() + " [TASK:" + taskName + "] " + message);
+        }
+        
+        if (guiEnabled) {
+            GuiManager.getInstance().appendLog(timestamp() + " [TASK:" + taskName + "] " + message, "normal");
         }
     }
 } 
