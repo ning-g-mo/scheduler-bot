@@ -1,6 +1,6 @@
 # 机器人基本配置
 bot:
-  websocket: "ws://127.0.0.1:6700"  # OneBot WebSocket地址
+  websocket: "ws://127.0.0.1:3001"  # OneBot WebSocket地址
   accessToken: ""  # 访问令牌（如果有）
   log:
     enableMessageLog: false     # 是否记录收到的消息
@@ -85,3 +85,35 @@ scheduledTasks:
     duration: 0
     sendNotice: true
     noticeContent: "成员 {memberId} 的禁言已解除，希望遵守群规则。"
+
+  - name: "图文消息"
+    type: "SEND_MESSAGE"
+    targetType: "GROUP"
+    targetIds: 
+      - 123456789
+    cronExpression: "0 30 7 * * ?"
+    content: "早上好！\n今天也要元气满满哦！\n[图片:https://ningmo.fun/logo.png]"
+
+  - name: "测试消息"
+    type: "SEND_MESSAGE"
+    targetType: "GROUP"
+    targetIds: 
+      - 123456789
+    cronExpression: "0 * * * * ?"  # 每分钟执行一次
+    content: "测试消息\n这是第二行"  # 先测试纯文本和换行
+
+  - name: "艾特消息测试"
+    type: "SEND_MESSAGE"
+    targetType: "GROUP"
+    targetIds: 
+      - 123456789
+    cronExpression: "0 0 8 * * ?"
+    content: "[艾特全体]早上好！\n[艾特:123456]请注意查看群公告。"
+
+  - name: "图文艾特混合消息"
+    type: "SEND_MESSAGE"
+    targetType: "GROUP"
+    targetIds: 
+      - 123456789
+    cronExpression: "0 30 12 * * ?"
+    content: "[艾特全体]午餐时间到啦！\n[图片:https://example.com/food.jpg]\n[艾特:123456][艾特:456789]记得按时吃饭哦~"

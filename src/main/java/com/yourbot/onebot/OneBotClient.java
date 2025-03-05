@@ -152,46 +152,145 @@ public class OneBotClient {
         return connected && client != null && client.isOpen();
     }
     
+    /**
+     * 发送群消息
+     */
     public void sendGroupMessage(long groupId, String message) {
         try {
+            if (!isConnected()) {
+                logger.warn("未连接到OneBot服务器，无法发送群消息");
+                ConsoleUtil.warn("未连接到OneBot服务器，无法发送群消息");
+                return;
+            }
+            
             // 检查消息长度
             if (message.length() > MAX_MESSAGE_LENGTH) {
-                logger.warn("消息长度超过限制({})，已截断", MAX_MESSAGE_LENGTH);
+                logger.warn("消息长度超过限制 ({}), 将被截断", MAX_MESSAGE_LENGTH);
                 message = message.substring(0, MAX_MESSAGE_LENGTH);
             }
             
             // 检查消息频率
             if (!checkMessageFrequency(groupId, true)) {
-                logger.warn("群 {} 消息发送过于频繁，已暂停发送", groupId);
+                logger.warn("消息发送过于频繁，已跳过本次发送");
                 return;
             }
             
-            // 检查是否连接
-            if (!isConnected()) {
-                logger.warn("未连接到OneBot服务器，无法发送群消息");
-                return;
-            }
+            logger.info("发送群消息到 {}: {}", groupId, message);
+            ConsoleUtil.debug("原始消息内容: " + message);
             
-            // 构建消息
+            // 处理换行符和图片
+            String processedMessage = processMessage(message);
+            ConsoleUtil.debug("处理后的消息内容: " + processedMessage);
+            
             ObjectNode json = mapper.createObjectNode();
             json.put("action", "send_group_msg");
             
             ObjectNode params = mapper.createObjectNode();
             params.put("group_id", groupId);
-            params.put("message", message);
-            params.put("auto_escape", false);
+            params.put("message", processedMessage);
+            params.put("auto_escape", false);  // 不转义CQ码
             
             json.set("params", params);
-            json.put("echo", UUID.randomUUID().toString());
+            String echo = UUID.randomUUID().toString();
+            json.put("echo", echo);
             
             String jsonStr = json.toString();
-            client.send(jsonStr);
+            logger.debug("发送WebSocket消息: {}", jsonStr);
+            ConsoleUtil.debug("发送WebSocket消息: " + jsonStr);
             
-            // 更新最后发送时间
+            client.send(jsonStr);
             lastMsgTime = System.currentTimeMillis();
             
+            ConsoleUtil.success("消息已发送到群 " + groupId);
         } catch (Exception e) {
             logger.error("发送群消息失败", e);
+            ConsoleUtil.error("发送群消息失败: " + e.getMessage());
+            ConsoleUtil.error("异常堆栈: ");
+            e.printStackTrace();
+            
+            // 添加更详细的错误诊断信息
+            if (e instanceof java.net.ConnectException) {
+                ConsoleUtil.error("连接失败，请检查:");
+                ConsoleUtil.error("1. OneBot服务是否正在运行");
+                ConsoleUtil.error("2. WebSocket地址是否正确");
+                ConsoleUtil.error("3. 端口是否正确且未被占用");
+            } else if (e instanceof java.net.UnknownHostException) {
+                ConsoleUtil.error("无法解析服务器地址，请检查WebSocket地址是否正确");
+            }
+        }
+    }
+    
+    /**
+     * 处理消息中的特殊内容（换行符、图片和艾特）
+     */
+    private String processMessage(String message) {
+        try {
+            // 处理换行符
+            message = message.replace("\\n", "\n");
+            ConsoleUtil.debug("处理换行后: " + message);
+            
+            // 处理艾特全体成员
+            if (message.contains("[艾特全体]")) {
+                ConsoleUtil.debug("处理艾特全体成员标记");
+                message = message.replace("[艾特全体]", "[CQ:at,qq=all]");
+            }
+            
+            // 处理艾特指定成员
+            if (message.contains("[艾特:")) {
+                ConsoleUtil.debug("检测到艾特标记，开始处理...");
+                
+                String tempMessage = message;
+                java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\\[艾特:(\\d+)\\]");
+                java.util.regex.Matcher matcher = pattern.matcher(tempMessage);
+                StringBuffer sb = new StringBuffer();
+                while (matcher.find()) {
+                    String qq = matcher.group(1);
+                    ConsoleUtil.debug("处理艾特成员: " + qq);
+                    matcher.appendReplacement(sb, "[CQ:at,qq=" + qq + "]");
+                }
+                matcher.appendTail(sb);
+                message = sb.toString();
+                
+                ConsoleUtil.debug("艾特处理完成: " + message);
+            }
+            
+            // 处理图片链接
+            if (message.contains("[图片:")) {
+                ConsoleUtil.debug("检测到图片标记，开始处理...");
+                
+                // 处理网络图片
+                String tempMessage = message;
+                java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\\[图片:(https?://[^\\]]+)\\]");
+                java.util.regex.Matcher matcher = pattern.matcher(tempMessage);
+                StringBuffer sb = new StringBuffer();
+                while (matcher.find()) {
+                    String url = matcher.group(1);
+                    ConsoleUtil.debug("处理网络图片: " + url);
+                    matcher.appendReplacement(sb, "[CQ:image,file=" + url + "]");
+                }
+                matcher.appendTail(sb);
+                message = sb.toString();
+                
+                // 处理本地图片
+                pattern = java.util.regex.Pattern.compile("\\[图片:file://([^\\]]+)\\]");
+                matcher = pattern.matcher(message);
+                sb = new StringBuffer();
+                while (matcher.find()) {
+                    String path = matcher.group(1);
+                    ConsoleUtil.debug("处理本地图片: " + path);
+                    matcher.appendReplacement(sb, "[CQ:image,file=file://" + path + "]");
+                }
+                matcher.appendTail(sb);
+                message = sb.toString();
+                
+                ConsoleUtil.debug("图片处理完成: " + message);
+            }
+            
+            return message;
+        } catch (Exception e) {
+            logger.error("处理消息内容失败", e);
+            ConsoleUtil.error("处理消息内容失败: " + e.getMessage());
+            return message; // 发生错误时返回原始消息
         }
     }
     
