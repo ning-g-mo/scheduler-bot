@@ -17,10 +17,15 @@ import java.util.Arrays;
 
 import com.yourbot.log.TaskExecutionLog;
 import com.yourbot.log.TaskLogManager;
+import com.yourbot.onebot.OneBotClient;
+import com.yourbot.onebot.GroupRequestProcessor;
 
 public class Main {
     private static final Logger logger = LoggerFactory.getLogger(Main.class);
     private static boolean guiMode = true;
+    
+    // 添加版本号常量
+    public static final String VERSION = "1.2.2";
     
     public static void main(String[] args) {
         // 检查命令行参数
@@ -54,8 +59,8 @@ public class Main {
             logger.info("创建日志目录: {}", logDir.getAbsolutePath());
         }
         
-        ConsoleUtil.info("正在启动机器人...");
-        logger.info("正在启动机器人...");
+        ConsoleUtil.info("正在启动定时任务机器人 v" + VERSION + "...");
+        logger.info("正在启动定时任务机器人 v{}", VERSION);
         
         try {
             // 加载配置
@@ -71,6 +76,18 @@ public class Main {
             ConsoleUtil.debug("开始初始化定时任务...");
             SchedulerManager schedulerManager = SchedulerManager.getInstance();
             schedulerManager.loadTasks();
+            
+            // 连接OneBot服务器
+            logger.debug("开始连接OneBot服务器...");
+            ConsoleUtil.debug("开始连接OneBot服务器...");
+            OneBotClient oneBotClient = OneBotClient.getInstance();
+            oneBotClient.connect();
+            
+            // 初始化进群请求处理器
+            logger.debug("初始化进群请求处理器...");
+            ConsoleUtil.debug("初始化进群请求处理器...");
+            GroupRequestProcessor requestProcessor = new GroupRequestProcessor();
+            requestProcessor.init();
             
             // 初始化GUI界面
             if (guiMode) {

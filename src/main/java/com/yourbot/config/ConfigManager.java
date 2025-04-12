@@ -173,6 +173,20 @@ public class ConfigManager {
         task5.setNoticeContent("成员 {memberId} 已被禁言 {duration}，请遵守群规则。");
         tasks.add(task5);
         
+        // 示例6：进群验证
+        ScheduledTask task6 = new ScheduledTask();
+        task6.setName("默认进群验证");
+        task6.setType(TaskType.GROUP_REQUEST_VERIFY);
+        task6.setTargetType("GROUP");
+        task6.setTargetId(123456789); // 示例群号，用户需要修改
+        task6.setVerifyQuestion("请回答: 1+1=?");
+        task6.setVerifyAnswer("2"); // 设置正确答案
+        task6.getVerifyAnswers().add("二"); // 添加额外正确答案
+        task6.getVerifyAnswers().add("两"); // 添加额外正确答案
+        task6.setRejectMessage("回答错误，正确答案是2，请重新申请加群并正确回答问题。");
+        task6.setCaseSensitive(false); // 答案不区分大小写
+        tasks.add(task6);
+        
         return tasks;
     }
     

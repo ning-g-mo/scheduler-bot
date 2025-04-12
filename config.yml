@@ -86,6 +86,32 @@ scheduledTasks:
     sendNotice: true
     noticeContent: "成员 {memberId} 的禁言已解除，希望遵守群规则。"
 
+  # 进群验证配置
+  - name: "编程群进群验证"
+    type: "GROUP_REQUEST_VERIFY"
+    targetType: "GROUP"
+    targetIds:
+      - 123456789  # 要启用验证的群号
+    verifyQuestion: "请回答：Python和Java都是什么类型的编程语言？"
+    verifyAnswers:  # 支持多个正确答案
+      - "面向对象编程语言"
+      - "面向对象"
+      - "OOP"
+    rejectMessage: "回答错误，请重新申请并正确回答问题"
+    caseSensitive: false  # 答案是否区分大小写
+    
+  - name: "动漫群进群验证"
+    type: "GROUP_REQUEST_VERIFY"
+    targetType: "GROUP"
+    targetIds:
+      - 987654321  # 要启用验证的群号
+    verifyQuestion: "请说出EVA的全名是什么？"
+    verifyAnswers:
+      - "新世纪福音战士"
+      - "Neon Genesis Evangelion"
+    rejectMessage: "您似乎不是真正的EVA迷，请重新申请并正确回答问题"
+    caseSensitive: false
+
   - name: "图文消息"
     type: "SEND_MESSAGE"
     targetType: "GROUP"

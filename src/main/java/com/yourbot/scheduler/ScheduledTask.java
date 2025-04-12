@@ -18,6 +18,12 @@ public class ScheduledTask {
     private boolean sendNotice;    // 是否发送通知消息
     private String noticeContent;  // 通知消息内容
     
+    // 进群验证相关属性
+    private String verifyQuestion;  // 验证问题
+    private List<String> verifyAnswers = new ArrayList<>(); // 有效验证答案列表（支持多个正确答案）
+    private String rejectMessage;   // 拒绝消息
+    private boolean caseSensitive = false; // 答案是否区分大小写
+    
     // 兼容单个目标ID的setter
     public void setTargetId(long targetId) {
         this.targetIds.clear();
@@ -38,5 +44,43 @@ public class ScheduledTask {
     // 兼容单个成员ID的getter
     public long getMemberId() {
         return memberIds.isEmpty() ? 0 : memberIds.get(0);
+    }
+    
+    // 兼容单个验证答案的setter
+    public void setVerifyAnswer(String verifyAnswer) {
+        this.verifyAnswers.clear();
+        if (verifyAnswer != null && !verifyAnswer.isEmpty()) {
+            this.verifyAnswers.add(verifyAnswer);
+        }
+    }
+    
+    // 兼容单个验证答案的getter
+    public String getVerifyAnswer() {
+        return verifyAnswers.isEmpty() ? "" : verifyAnswers.get(0);
+    }
+    
+    /**
+     * 检查答案是否正确
+     * @param answer 用户提供的答案
+     * @return 是否正确
+     */
+    public boolean checkAnswer(String answer) {
+        if (answer == null || answer.isEmpty() || verifyAnswers.isEmpty()) {
+            return false;
+        }
+        
+        for (String correctAnswer : verifyAnswers) {
+            if (caseSensitive) {
+                if (correctAnswer.equals(answer)) {
+                    return true;
+                }
+            } else {
+                if (correctAnswer.equalsIgnoreCase(answer)) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
     }
 } 

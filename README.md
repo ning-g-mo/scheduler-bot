@@ -153,6 +153,20 @@ Linux/Mac:
 - `sendNotice`: 是否发送通知消息，默认为 false
 - `noticeContent`: 通知消息内容，支持变量 {memberId} 和 {duration}
 
+### 4. 进群验证 (GROUP_REQUEST_VERIFY)
+
+自动处理进群申请，根据用户在申请时填写的验证答案决定是否通过。
+
+必要参数：
+- `targetType`: 必须为 "GROUP"
+- `targetIds`: 要启用验证的群号列表
+- `verifyQuestion`: 验证问题
+- `verifyAnswers`: 正确答案列表，支持多个正确答案
+
+可选参数：
+- `rejectMessage`: 拒绝消息，当验证失败时返回给用户的消息
+- `caseSensitive`: 答案是否区分大小写，默认为 false
+
 ## Cron表达式说明
 
 Cron表达式由6个或7个由空格分隔的时间字段组成：
@@ -223,6 +237,19 @@ scheduledTasks:
     duration: 3600
     sendNotice: true
     noticeContent: "成员 {memberId} 已被禁言 {duration}"
+    
+  - name: "进群验证"
+    type: "GROUP_REQUEST_VERIFY"
+    targetType: "GROUP"
+    targetIds:
+      - 123456789  # 群号
+    verifyQuestion: "请回答：Python和Java都是什么类型的编程语言？"
+    verifyAnswers:  # 多个正确答案
+      - "面向对象编程语言"
+      - "面向对象"
+      - "OOP"
+    rejectMessage: "回答错误，请重新申请并正确回答问题"
+    caseSensitive: false  # 答案是否区分大小写
 
 bot:
   log:
@@ -268,6 +295,14 @@ start.bat nogui
 
 Docker中默认以无界面模式运行。
 
+## 新增功能 (v1.2.2)
+
+### 进群申请审核优化
+- 改进进群验证流程，提高验证效率
+- 增强答案匹配算法
+- 提升稳定性和用户体验
+- 改进日志记录，便于排查问题
+
 ## 新增功能 (v1.2.1)
 
 ### 图片发送
@@ -283,6 +318,29 @@ Docker中默认以无界面模式运行。
 ### 混合消息示例
 ```yaml
 content: "[艾特全体]通知！\n[艾特:123456]请处理\n[图片:http://example.com/image.jpg]"
+```
+
+## 新增功能 (v1.3.0)
+
+### 进群验证
+- 支持在用户申请入群时直接验证问题答案
+- 答案正确自动通过，答案错误自动拒绝
+- 支持设置多个正确答案
+- 支持自定义拒绝理由
+- 配置示例：
+```yaml
+- name: "进群验证"
+  type: "GROUP_REQUEST_VERIFY"
+  targetType: "GROUP"
+  targetIds:
+    - 123456789  # 群号
+  verifyQuestion: "请回答：Python和Java都是什么类型的编程语言？"
+  verifyAnswers:  # 多个正确答案
+    - "面向对象编程语言"
+    - "面向对象"
+    - "OOP"
+  rejectMessage: "回答错误，请重新申请并正确回答问题"
+  caseSensitive: false  # 答案是否区分大小写
 ```
 
 

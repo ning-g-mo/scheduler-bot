@@ -1,6 +1,18 @@
 @echo off
-chcp 65001
-:: 启用ANSI颜色支持
-reg add HKCU\Console /v VirtualTerminalLevel /t REG_DWORD /d 1 /f > nul 2>&1
-java -Dfile.encoding=UTF-8 -Dsun.stdout.encoding=UTF-8 -Dsun.stderr.encoding=UTF-8 -Xmx2G -jar scheduler-bot-1.2.1.jar %*
-pause 
+echo 正在启动定时任务机器人 v1.2.2...
+echo.
+
+set JAVA_OPTS=-Xmx512m -Dfile.encoding=UTF-8
+
+if "%1"=="nogui" (
+  echo 以无界面模式启动...
+  java %JAVA_OPTS% -jar scheduler-bot-1.2.2.jar nogui
+) else (
+  java %JAVA_OPTS% -jar scheduler-bot-1.2.2.jar
+)
+
+if errorlevel 1 (
+  echo 启动失败，请检查Java环境是否正确安装。
+  pause
+  exit /b 1
+) 

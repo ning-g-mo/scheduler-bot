@@ -86,25 +86,50 @@ public class OneBotClient {
                 @Override
                 public void onMessage(String message) {
                     try {
-                        logger.debug("收到消息: {}", message);
-                        
-                        // 检查是否启用消息日志
-                        if (ConfigManager.getInstance().getBotConfig().getLog().isEnableMessageLog()) {
-                            ConsoleUtil.debug("收到OneBot消息: " + message.substring(0, Math.min(100, message.length())) + 
-                                    (message.length() > 100 ? "..." : ""));
-                        }
-                        
                         JsonNode json = mapper.readTree(message);
                         
-                        // 如果是心跳消息且未启用调试日志，则不记录
-                        if (isHeartbeatMessage(json) && !ConfigManager.getInstance().getBotConfig().getLog().isEnableDebugLog()) {
+                        // 处理心跳消息
+                        if (isHeartbeatMessage(json)) {
                             return;
                         }
                         
-                        // 处理消息...
+                        // 处理API响应
+                        if (json.has("echo") || json.has("status")) {
+                            handleResponse(json);
+                            return;
+                        }
+                        
+                        // 处理事件
+                        if (json.has("post_type")) {
+                            String postType = json.get("post_type").asText();
+                            
+                            // 进群请求事件
+                            if ("request".equals(postType) && json.has("request_type")) {
+                                String requestType = json.get("request_type").asText();
+                                
+                                if ("group".equals(requestType) && json.has("sub_type")) {
+                                    String subType = json.get("sub_type").asText();
+                                    
+                                    if ("add".equals(subType)) {
+                                        // 触发进群请求事件
+                                        OneBotEventListener.fireEvent("request.group.add", json);
+                                        logger.debug("触发进群请求事件");
+                                    }
+                                }
+                            }
+                            
+                            // 消息事件
+                            else if ("message".equals(postType)) {
+                                // 处理其他消息事件...
+                            }
+                            
+                            // 通知事件
+                            else if ("notice".equals(postType)) {
+                                // 处理通知事件...
+                            }
+                        }
                     } catch (Exception e) {
-                        logger.error("处理消息失败", e);
-                        ConsoleUtil.error("处理消息失败: " + e.getMessage());
+                        logger.error("处理WebSocket消息失败", e);
                     }
                 }
                 
@@ -450,5 +475,66 @@ public class OneBotClient {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+    }
+    
+    /**
+     * 处理进群请求
+     * @param flag 请求标识
+     * @param approve 是否同意
+     * @param reason 拒绝理由（仅在拒绝时有效）
+     * @return 操作是否成功
+     */
+    public boolean handleGroupRequest(String flag, boolean approve, String reason) {
+        if (!isConnected()) {
+            logger.error("处理进群请求失败: 未连接到OneBotAPI");
+            return false;
+        }
+        
+        try {
+            ObjectNode requestJson = mapper.createObjectNode();
+            requestJson.put("action", approve ? "set_group_add_request" : "set_group_add_request");
+            
+            ObjectNode params = mapper.createObjectNode();
+            params.put("flag", flag);
+            params.put("sub_type", "add");
+            params.put("approve", approve);
+            if (!approve && reason != null && !reason.trim().isEmpty()) {
+                params.put("reason", reason);
+            }
+            
+            requestJson.set("params", params);
+            
+            String requestStr = mapper.writeValueAsString(requestJson);
+            logger.debug("发送处理进群请求: {}", requestStr);
+            client.send(requestStr);
+            
+            return true;
+        } catch (Exception e) {
+            logger.error("处理进群请求失败", e);
+            return false;
+        }
+    }
+    
+    /**
+     * 获取进群请求中的验证回答
+     * @param comment 验证信息
+     * @return 提取的答案，如果没有找到则返回原始字符串
+     */
+    public String extractVerifyAnswer(String comment) {
+        if (comment == null || comment.isEmpty()) {
+            return "";
+        }
+        
+        // 尝试提取问题和答案格式
+        // 常见格式：问题：xxx 答案：yyy
+        if (comment.contains("答案")) {
+            String[] parts = comment.split("答案[：:]");
+            if (parts.length > 1) {
+                return parts[1].trim();
+            }
+        }
+        
+        // 简单格式：直接提取所有内容作为答案
+        return comment.trim();
     }
 } 
