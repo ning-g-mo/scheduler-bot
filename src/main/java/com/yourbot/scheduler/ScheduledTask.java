@@ -24,6 +24,24 @@ public class ScheduledTask {
     private String rejectMessage;   // 拒绝消息
     private boolean caseSensitive = false; // 答案是否区分大小写
     
+    // 新增验证相关属性
+    private boolean ignoreWhitespace = false; // 答案是否忽略空格
+    private boolean fuzzyMatch = false;       // 答案是否模糊匹配
+    private int minLevel = 0;                 // 最低等级要求（0表示不检查）
+    private int maxAutoAcceptLevel = 0;       // 达到多少等级时自动同意（0表示不自动同意）
+    private VerifyMode verifyMode = VerifyMode.ANSWER_ONLY; // 验证模式
+    
+    // 验证模式枚举
+    public enum VerifyMode {
+        IGNORE_ALL,              // 都忽略
+        ANY_ONE_PASS,            // 仅一个满足即可同意
+        BOTH_REQUIRED,           // 都满足条件同意
+        ANSWER_ONLY,             // 满足答案验证同意
+        LEVEL_ONLY,              // 满足等级验证同意
+        ANSWER_PASS_LEVEL_PENDING, // 满足答案验证但等级不符合要求将不处理
+        LEVEL_PASS_ANSWER_PENDING  // 满足等级验证但答案验证不符合要求将不处理
+    }
+    
     // 兼容单个目标ID的setter
     public void setTargetId(long targetId) {
         this.targetIds.clear();
@@ -69,18 +87,69 @@ public class ScheduledTask {
             return false;
         }
         
+        // 处理空格忽略
+        String processedUserAnswer = answer;
+        if (ignoreWhitespace) {
+            processedUserAnswer = answer.replaceAll("\\s+", "");
+        }
+        
         for (String correctAnswer : verifyAnswers) {
-            if (caseSensitive) {
-                if (correctAnswer.equals(answer)) {
+            String processedCorrectAnswer = correctAnswer;
+            if (ignoreWhitespace) {
+                processedCorrectAnswer = correctAnswer.replaceAll("\\s+", "");
+            }
+            
+            // 不区分大小写情况
+            if (!caseSensitive) {
+                processedUserAnswer = processedUserAnswer.toLowerCase();
+                processedCorrectAnswer = processedCorrectAnswer.toLowerCase();
+            }
+            
+            // 检查答案
+            if (fuzzyMatch) {
+                // 模糊匹配，只要用户答案包含正确答案或正确答案包含用户答案就算通过
+                if (processedUserAnswer.contains(processedCorrectAnswer) || 
+                    processedCorrectAnswer.contains(processedUserAnswer)) {
                     return true;
                 }
             } else {
-                if (correctAnswer.equalsIgnoreCase(answer)) {
+                // 精确匹配
+                if (processedCorrectAnswer.equals(processedUserAnswer)) {
                     return true;
                 }
             }
         }
         
         return false;
+    }
+    
+    /**
+     * 检查用户等级是否符合要求
+     * @param userLevel 用户等级
+     * @return 是否符合要求
+     */
+    public boolean checkLevel(int userLevel) {
+        // 如果没有设置最低等级要求，则默认通过
+        if (minLevel <= 0) {
+            return true;
+        }
+        
+        // 检查用户等级是否达到最低要求
+        return userLevel >= minLevel;
+    }
+    
+    /**
+     * 检查用户是否达到自动通过等级
+     * @param userLevel 用户等级
+     * @return 是否达到自动通过等级
+     */
+    public boolean checkAutoAcceptLevel(int userLevel) {
+        // 如果没有设置自动通过等级，或设置为0，则不自动通过
+        if (maxAutoAcceptLevel <= 0) {
+            return false;
+        }
+        
+        // 检查用户等级是否达到自动通过等级
+        return userLevel >= maxAutoAcceptLevel;
     }
 } 

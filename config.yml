@@ -99,6 +99,9 @@ scheduledTasks:
       - "OOP"
     rejectMessage: "回答错误，请重新申请并正确回答问题"
     caseSensitive: false  # 答案是否区分大小写
+    ignoreWhitespace: true  # 答案是否忽略空格
+    fuzzyMatch: true  # 答案是否模糊匹配
+    verifyMode: "ANSWER_ONLY"  # 验证模式：只验证答案
     
   - name: "动漫群进群验证"
     type: "GROUP_REQUEST_VERIFY"
@@ -111,6 +114,63 @@ scheduledTasks:
       - "Neon Genesis Evangelion"
     rejectMessage: "您似乎不是真正的EVA迷，请重新申请并正确回答问题"
     caseSensitive: false
+    ignoreWhitespace: true
+    fuzzyMatch: false
+    verifyMode: "ANSWER_ONLY"
+    
+  # 新增高级验证配置示例
+  - name: "资深用户群进群验证"
+    type: "GROUP_REQUEST_VERIFY"
+    targetType: "GROUP"
+    targetIds:
+      - 123456789  # 要启用验证的群号
+    verifyQuestion: "请回答：本群的创建时间是？(提示：2020年x月)"
+    verifyAnswers:
+      - "2020年6月"
+      - "2020年六月"
+      - "2020.6"
+    rejectMessage: "回答错误，请查看群简介后重新回答"
+    caseSensitive: false
+    ignoreWhitespace: true
+    fuzzyMatch: true
+    minLevel: 20  # 最低等级要求
+    maxAutoAcceptLevel: 50  # 达到50级自动通过
+    verifyMode: "ANY_ONE_PASS"  # 验证模式：任一验证通过即可
+    
+  - name: "高要求技术群验证"
+    type: "GROUP_REQUEST_VERIFY"
+    targetType: "GROUP"
+    targetIds:
+      - 987654321  # 要启用验证的群号
+    verifyQuestion: "请简述您的技术背景和加群目的"
+    verifyAnswers:
+      - "开发"
+      - "程序员"
+      - "工程师"
+      - "技术"
+    rejectMessage: "很抱歉，您的回答未能通过验证，请提供更详细的技术背景"
+    caseSensitive: false
+    ignoreWhitespace: true
+    fuzzyMatch: true
+    minLevel: 30  # 最低等级要求
+    verifyMode: "BOTH_REQUIRED"  # 验证模式：答案和等级都必须通过
+    
+  - name: "VIP用户群验证"
+    type: "GROUP_REQUEST_VERIFY"
+    targetType: "GROUP"
+    targetIds:
+      - 123454321  # 要启用验证的群号
+    verifyQuestion: "请输入您的VIP邀请码"
+    verifyAnswers:
+      - "VIP2023"
+      - "VIP2024"
+    rejectMessage: "邀请码无效，请联系管理员获取"
+    caseSensitive: true  # 邀请码区分大小写
+    ignoreWhitespace: true
+    fuzzyMatch: false
+    minLevel: 0  # 不检查等级
+    maxAutoAcceptLevel: 100  # 100级以上自动通过
+    verifyMode: "ANSWER_PASS_LEVEL_PENDING"  # 答案通过但等级不符合要求将不处理
 
   - name: "图文消息"
     type: "SEND_MESSAGE"

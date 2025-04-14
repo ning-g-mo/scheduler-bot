@@ -8,6 +8,7 @@
   - 定时发送消息（群聊/私聊）
   - 定时全体禁言/解禁
   - 定时禁言/解禁特定成员
+  - 进群申请智能验证
 - 使用Cron表达式灵活配置任务执行时间
 - 彩色日志输出，方便监控任务执行情况
 - 任务执行日志记录和查询功能
@@ -155,7 +156,7 @@ Linux/Mac:
 
 ### 4. 进群验证 (GROUP_REQUEST_VERIFY)
 
-自动处理进群申请，根据用户在申请时填写的验证答案决定是否通过。
+自动处理进群申请，根据用户在申请时填写的验证答案和等级决定是否通过。
 
 必要参数：
 - `targetType`: 必须为 "GROUP"
@@ -163,9 +164,86 @@ Linux/Mac:
 - `verifyQuestion`: 验证问题
 - `verifyAnswers`: 正确答案列表，支持多个正确答案
 
-可选参数：
+基本可选参数：
 - `rejectMessage`: 拒绝消息，当验证失败时返回给用户的消息
 - `caseSensitive`: 答案是否区分大小写，默认为 false
+
+增强验证可选参数：
+- `ignoreWhitespace`: 是否忽略答案中的空格，默认为 false
+- `fuzzyMatch`: 是否启用模糊匹配，默认为 false
+- `minLevel`: 最低等级要求，低于此等级将拒绝，默认为 0（不检查等级）
+- `maxAutoAcceptLevel`: 达到指定等级自动通过验证，默认为 0（不自动通过）
+- `verifyMode`: 验证模式，详见下方验证模式说明
+
+#### 验证模式说明
+- `IGNORE_ALL`: 忽略所有验证，直接同意所有申请
+- `ANY_ONE_PASS`: 答案验证或等级验证通过任一个即可同意
+- `BOTH_REQUIRED`: 必须同时通过答案验证和等级验证
+- `ANSWER_ONLY`: 只检查答案正确性（默认模式）
+- `LEVEL_ONLY`: 只检查用户等级
+- `ANSWER_PASS_LEVEL_PENDING`: 答案通过但等级不符要求时挂起请求（不自动处理）
+- `LEVEL_PASS_ANSWER_PENDING`: 等级通过但答案不正确时挂起请求（不自动处理）
+
+#### 答案验证增强说明
+- `ignoreWhitespace`选项：
+  - 设为`true`时会忽略答案中的所有空格，适合对格式要求不严格的场景
+  - 例如："面向 对象"与"面向对象"将被视为相同
+  
+- `fuzzyMatch`选项：
+  - 设为`true`时启用模糊匹配，只要用户答案包含正确答案，或正确答案包含用户答案，就视为通过
+  - 例如：正确答案为"面向对象"，用户回答"Java是面向对象的语言"或"面向对象编程"都会通过
+  - 适合需要灵活验证的场景，但可能降低验证精确度
+
+#### 等级验证说明
+- `minLevel`: 设置群成员最低等级要求
+  - 当用户等级低于此值时，拒绝入群请求
+  - 设为0时不检查等级
+  
+- `maxAutoAcceptLevel`: 设置自动通过的等级阈值
+  - 当用户等级高于或等于此值时，自动同意入群请求，无需答案验证
+  - 设为0时禁用此功能
+  - 适合对资深用户简化入群流程
+
+#### 进群验证配置示例
+
+基础验证示例：
+```yaml
+- name: "编程群进群验证"
+  type: "GROUP_REQUEST_VERIFY"
+  targetType: "GROUP"
+  targetIds:
+    - 123456789
+  verifyQuestion: "请回答：Python和Java都是什么类型的编程语言？"
+  verifyAnswers:
+    - "面向对象编程语言"
+    - "面向对象"
+    - "OOP"
+  rejectMessage: "回答错误，请重新申请并正确回答问题"
+  caseSensitive: false
+  verifyMode: "ANSWER_ONLY"
+```
+
+高级验证示例：
+```yaml
+- name: "VIP用户群验证"
+  type: "GROUP_REQUEST_VERIFY"
+  targetType: "GROUP"
+  targetIds:
+    - 123454321
+  verifyQuestion: "请输入邀请码或者告知您的技术领域"
+  verifyAnswers:
+    - "VIP2023"
+    - "前端"
+    - "后端"
+    - "全栈"
+  rejectMessage: "验证未通过，请联系管理员获取邀请码"
+  caseSensitive: true
+  ignoreWhitespace: true
+  fuzzyMatch: true
+  minLevel: 20
+  maxAutoAcceptLevel: 50
+  verifyMode: "ANY_ONE_PASS"
+```
 
 ## Cron表达式说明
 
@@ -205,9 +283,15 @@ mvn clean package
 
 ## 更新说明
 
-### v1.1.1
-- 添加调试日志级别控制选项
-- 优化日志配置系统
+### v1.2.3
+- 修复进群验证功能中的等级验证问题
+- 提升API调用稳定性和可靠性
+
+### v1.3.1
+- 添加进群验证增强功能
+  - 答案验证增强：忽略空格、模糊匹配
+  - 等级验证：最低等级要求、自动通过等级
+  - 多种验证模式组合策略
 
 [查看完整更新日志](CHANGELOG.md)
 
@@ -238,7 +322,7 @@ scheduledTasks:
     sendNotice: true
     noticeContent: "成员 {memberId} 已被禁言 {duration}"
     
-  - name: "进群验证"
+  - name: "进群验证-基础"
     type: "GROUP_REQUEST_VERIFY"
     targetType: "GROUP"
     targetIds:
@@ -250,6 +334,23 @@ scheduledTasks:
       - "OOP"
     rejectMessage: "回答错误，请重新申请并正确回答问题"
     caseSensitive: false  # 答案是否区分大小写
+    
+  - name: "进群验证-高级"
+    type: "GROUP_REQUEST_VERIFY"
+    targetType: "GROUP"
+    targetIds:
+      - 987654321  # 群号
+    verifyQuestion: "请回答：本群的主题是什么？（提示：与编程相关）"
+    verifyAnswers:
+      - "Java编程"
+      - "Java"
+    rejectMessage: "回答错误，请查看群介绍后重新申请"
+    caseSensitive: false
+    ignoreWhitespace: true
+    fuzzyMatch: true
+    minLevel: 15
+    maxAutoAcceptLevel: 40
+    verifyMode: "BOTH_REQUIRED"
 
 bot:
   log:
@@ -295,52 +396,64 @@ start.bat nogui
 
 Docker中默认以无界面模式运行。
 
-## 新增功能 (v1.2.2)
+## 最佳实践
 
-### 进群申请审核优化
-- 改进进群验证流程，提高验证效率
-- 增强答案匹配算法
-- 提升稳定性和用户体验
-- 改进日志记录，便于排查问题
+### 进群验证场景推荐
 
-## 新增功能 (v1.2.1)
+1. **普通社交群**：
+   ```yaml
+   verifyQuestion: "请回答：2+3=?"
+   verifyAnswers:
+     - "5"
+     - "五"
+   caseSensitive: false
+   ignoreWhitespace: true
+   fuzzyMatch: false
+   verifyMode: "ANSWER_ONLY"
+   ```
+   简单的数学问题防止广告机器人
 
-### 图片发送
-支持在消息中插入图片：
-- 网络图片：`[图片:http://example.com/image.jpg]`
-- 本地图片：`[图片:file:///path/to/image.jpg]`
+2. **技术交流群**：
+   ```yaml
+   verifyQuestion: "请简述您的技术背景和加群目的"
+   verifyAnswers:
+     - "程序员"
+     - "开发"
+     - "学习"
+     - "技术"
+   caseSensitive: false
+   ignoreWhitespace: true
+   fuzzyMatch: true
+   minLevel: 20
+   verifyMode: "BOTH_REQUIRED"
+   ```
+   要求一定的活跃度和技术背景
 
-### 艾特功能
-支持在消息中艾特成员：
-- 艾特全体成员：`[艾特全体]`
-- 艾特指定成员：`[艾特:123456]`
+3. **VIP会员群**：
+   ```yaml
+   verifyQuestion: "请输入您的会员邀请码"
+   verifyAnswers:
+     - "VIP2023"
+     - "MEMBER2023"
+   caseSensitive: true
+   ignoreWhitespace: true
+   fuzzyMatch: false
+   maxAutoAcceptLevel: 100
+   verifyMode: "ANSWER_ONLY"
+   ```
+   严格邀请码验证，资深用户可以自动通过
 
-### 混合消息示例
-```yaml
-content: "[艾特全体]通知！\n[艾特:123456]请处理\n[图片:http://example.com/image.jpg]"
-```
-
-## 新增功能 (v1.3.0)
-
-### 进群验证
-- 支持在用户申请入群时直接验证问题答案
-- 答案正确自动通过，答案错误自动拒绝
-- 支持设置多个正确答案
-- 支持自定义拒绝理由
-- 配置示例：
-```yaml
-- name: "进群验证"
-  type: "GROUP_REQUEST_VERIFY"
-  targetType: "GROUP"
-  targetIds:
-    - 123456789  # 群号
-  verifyQuestion: "请回答：Python和Java都是什么类型的编程语言？"
-  verifyAnswers:  # 多个正确答案
-    - "面向对象编程语言"
-    - "面向对象"
-    - "OOP"
-  rejectMessage: "回答错误，请重新申请并正确回答问题"
-  caseSensitive: false  # 答案是否区分大小写
-```
+4. **粉丝群**：
+   ```yaml
+   verifyQuestion: "请回答：博主的名字是？"
+   verifyAnswers:
+     - "张三"
+   caseSensitive: false
+   ignoreWhitespace: true
+   fuzzyMatch: false
+   verifyMode: "ANY_ONE_PASS"
+   minLevel: 10
+   ```
+   简单的粉丝问题，同时要求一定活跃度
 
 

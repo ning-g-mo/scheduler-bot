@@ -15,6 +15,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 public class OneBotClient {
     private static final Logger logger = LoggerFactory.getLogger(OneBotClient.class);
@@ -33,6 +35,9 @@ public class OneBotClient {
     private final Map<Long, Integer> groupMsgCounter = new ConcurrentHashMap<>();
     private final Map<Long, Integer> privateMsgCounter = new ConcurrentHashMap<>();
     private long lastMsgTime = 0;
+    
+    // 添加异步请求响应映射
+    private final Map<String, CompletableFuture<JsonNode>> responseFutures = new ConcurrentHashMap<>();
     
     // 添加消息长度限制
     private static final int MAX_MESSAGE_LENGTH = 4500;
@@ -93,43 +98,72 @@ public class OneBotClient {
                             return;
                         }
                         
-                        // 处理API响应
-                        if (json.has("echo") || json.has("status")) {
-                            handleResponse(json);
+                        // 处理API调用响应
+                        if (json.has("echo") && json.has("status") && json.has("retcode")) {
+                            String echo = json.get("echo").asText();
+                            synchronized (responseFutures) {
+                                CompletableFuture<JsonNode> future = responseFutures.get(echo);
+                                if (future != null) {
+                                    future.complete(json);
+                                }
+                            }
                             return;
                         }
                         
-                        // 处理事件
+                        // 处理事件消息
                         if (json.has("post_type")) {
                             String postType = json.get("post_type").asText();
                             
-                            // 进群请求事件
-                            if ("request".equals(postType) && json.has("request_type")) {
-                                String requestType = json.get("request_type").asText();
-                                
-                                if ("group".equals(requestType) && json.has("sub_type")) {
-                                    String subType = json.get("sub_type").asText();
-                                    
-                                    if ("add".equals(subType)) {
-                                        // 触发进群请求事件
-                                        OneBotEventListener.fireEvent("request.group.add", json);
-                                        logger.debug("触发进群请求事件");
-                                    }
-                                }
+                            // 记录收到的消息
+                            if (ConfigManager.getInstance().getBotConfig().getLog().isEnableMessageLog()) {
+                                logger.info("收到消息: {}", message);
                             }
                             
                             // 消息事件
-                            else if ("message".equals(postType)) {
-                                // 处理其他消息事件...
+                            if ("message".equals(postType)) {
+                                String messageType = json.get("message_type").asText();
+                                String rawMessage = json.has("raw_message") ? 
+                                        json.get("raw_message").asText() : json.get("message").asText();
+                                long senderId = json.get("sender").get("user_id").asLong();
+                                
+                                if ("group".equals(messageType)) {
+                                    long groupId = json.get("group_id").asLong();
+                                    logger.debug("收到群 {} 中用户 {} 的消息: {}", groupId, senderId, rawMessage);
+                                    OneBotEventListener.fireEvent("message.group", json);
+                                } else if ("private".equals(messageType)) {
+                                    logger.debug("收到用户 {} 的私聊消息: {}", senderId, rawMessage);
+                                    OneBotEventListener.fireEvent("message.private", json);
+                                }
                             }
-                            
+                            // 请求事件（如加群请求）
+                            else if ("request".equals(postType)) {
+                                String requestType = json.get("request_type").asText();
+                                
+                                if ("group".equals(requestType)) {
+                                    String subType = json.get("sub_type").asText();
+                                    if ("add".equals(subType)) {
+                                        logger.debug("收到进群请求事件");
+                                        OneBotEventListener.fireEvent("request.group.add", json);
+                                    }
+                                }
+                            }
                             // 通知事件
                             else if ("notice".equals(postType)) {
-                                // 处理通知事件...
+                                String noticeType = json.get("notice_type").asText();
+                                OneBotEventListener.fireEvent("notice." + noticeType, json);
+                            }
+                            // 元事件
+                            else if ("meta_event".equals(postType)) {
+                                String metaType = json.get("meta_event_type").asText();
+                                if ("heartbeat".equals(metaType)) {
+                                    // 心跳事件，不做处理
+                                } else {
+                                    OneBotEventListener.fireEvent("meta." + metaType, json);
+                                }
                             }
                         }
                     } catch (Exception e) {
-                        logger.error("处理WebSocket消息失败", e);
+                        logger.error("处理WebSocket消息时发生错误: {}", e.getMessage(), e);
                     }
                 }
                 
@@ -537,4 +571,66 @@ public class OneBotClient {
         // 简单格式：直接提取所有内容作为答案
         return comment.trim();
     }
-} 
+    
+    /**
+     * 获取群成员信息，包括等级
+     * @param groupId 群号
+     * @param userId 用户QQ号
+     * @return 用户等级，如果获取失败则返回0
+     */
+    public int getGroupMemberLevel(long groupId, long userId) {
+        if (!isConnected()) {
+            logger.error("Bot未连接到服务器，无法获取群成员等级");
+            return 0;
+        }
+        
+        try {
+            ObjectNode json = mapper.createObjectNode();
+            json.put("action", "get_group_member_info");
+            json.put("params", mapper.createObjectNode()
+                .put("group_id", groupId)
+                .put("user_id", userId)
+                .put("no_cache", true));
+                
+            String requestStr = mapper.writeValueAsString(json);
+            logger.debug("发送获取群成员信息请求: {}", requestStr);
+            
+            // 这里使用同步方式获取群成员信息
+            CompletableFuture<JsonNode> future = new CompletableFuture<>();
+            String requestId = UUID.randomUUID().toString();
+            json.put("echo", requestId);
+            
+            synchronized (responseFutures) {
+                responseFutures.put(requestId, future);
+            }
+            
+            client.send(requestStr);
+            
+            // 等待响应，最多等待5秒
+            JsonNode response;
+            try {
+                response = future.get(5, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                logger.error("获取群成员信息超时或失败", e);
+                return 0;
+            } finally {
+                synchronized (responseFutures) {
+                    responseFutures.remove(requestId);
+                }
+            }
+            
+            if (response != null && response.has("data")) {
+                JsonNode data = response.get("data");
+                if (data.has("level")) {
+                    return data.get("level").asInt(0);
+                }
+            }
+            
+            logger.warn("无法获取用户等级信息，可能是API不支持");
+            return 0;
+        } catch (Exception e) {
+            logger.error("获取群成员等级失败", e);
+            return 0;
+        }
+    }
+}

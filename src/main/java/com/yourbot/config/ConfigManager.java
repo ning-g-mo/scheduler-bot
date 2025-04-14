@@ -173,7 +173,7 @@ public class ConfigManager {
         task5.setNoticeContent("成员 {memberId} 已被禁言 {duration}，请遵守群规则。");
         tasks.add(task5);
         
-        // 示例6：进群验证
+        // 示例6：进群验证 - 基础答案验证
         ScheduledTask task6 = new ScheduledTask();
         task6.setName("默认进群验证");
         task6.setType(TaskType.GROUP_REQUEST_VERIFY);
@@ -185,7 +185,29 @@ public class ConfigManager {
         task6.getVerifyAnswers().add("两"); // 添加额外正确答案
         task6.setRejectMessage("回答错误，正确答案是2，请重新申请加群并正确回答问题。");
         task6.setCaseSensitive(false); // 答案不区分大小写
+        task6.setIgnoreWhitespace(true); // 忽略空格
+        task6.setFuzzyMatch(false); // 不使用模糊匹配
+        task6.setVerifyMode(ScheduledTask.VerifyMode.ANSWER_ONLY); // 仅使用答案验证
         tasks.add(task6);
+        
+        // 示例7：进群验证 - 高级验证（等级+答案）
+        ScheduledTask task7 = new ScheduledTask();
+        task7.setName("高级进群验证");
+        task7.setType(TaskType.GROUP_REQUEST_VERIFY);
+        task7.setTargetType("GROUP");
+        task7.setTargetId(987654321); // 示例群号，用户需要修改
+        task7.setVerifyQuestion("请回答社区规则中禁止发布的内容类型（提示：违法...）");
+        task7.getVerifyAnswers().add("违法"); // 添加多个可能的正确答案
+        task7.getVerifyAnswers().add("色情");
+        task7.getVerifyAnswers().add("广告");
+        task7.setRejectMessage("回答错误，请阅读群公告了解社区规则后再申请。");
+        task7.setCaseSensitive(false); // 答案不区分大小写
+        task7.setIgnoreWhitespace(true); // 忽略空格
+        task7.setFuzzyMatch(true); // 使用模糊匹配
+        task7.setMinLevel(10); // 最低等级要求
+        task7.setMaxAutoAcceptLevel(50); // 达到50级自动通过
+        task7.setVerifyMode(ScheduledTask.VerifyMode.ANY_ONE_PASS); // 任一验证通过即可
+        tasks.add(task7);
         
         return tasks;
     }
