@@ -14,6 +14,7 @@ import java.util.List;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
+import java.util.NoSuchElementException;
 
 import com.yourbot.log.TaskExecutionLog;
 import com.yourbot.log.TaskLogManager;
@@ -28,9 +29,12 @@ public class Main {
     public static final String VERSION = "1.2.3";
     
     public static void main(String[] args) {
-        // 检查命令行参数
-        if (Arrays.asList(args).contains("nogui")) {
-            guiMode = false;
+        // 检查是否以无界面模式启动
+        for (String arg : args) {
+            if ("nogui".equalsIgnoreCase(arg)) {
+                guiMode = false;
+                break;
+            }
         }
         
         // 设置默认字符编码
@@ -49,7 +53,7 @@ public class Main {
         
         logger.info("设置默认字符编码: UTF-8");
         
-        // 设置是否启用GUI
+        // 设置GUI模式
         ConsoleUtil.setGuiEnabled(guiMode);
         
         // 创建日志目录
@@ -63,48 +67,76 @@ public class Main {
         logger.info("正在启动定时任务机器人 v{}", VERSION);
         
         try {
-            // 加载配置
-            logger.debug("开始加载配置...");
-            ConsoleUtil.debug("开始加载配置...");
-            ConfigManager configManager = ConfigManager.getInstance();
-            
-            // 检查配置是否需要修改
+            // 检查配置文件是否需要修改
             checkConfigNeedsModification();
             
-            // 初始化定时任务
+            // 初始化定时任务系统
+            logger.info("正在启动机器人...");
+            ConsoleUtil.info("正在启动机器人...");
+            
+            // 获取配置
+            logger.debug("开始加载配置...");
+            ConsoleUtil.debug("开始加载配置...");
+            
             logger.debug("开始初始化定时任务...");
             ConsoleUtil.debug("开始初始化定时任务...");
-            SchedulerManager schedulerManager = SchedulerManager.getInstance();
-            schedulerManager.loadTasks();
             
-            // 连接OneBot服务器
-            logger.debug("开始连接OneBot服务器...");
-            ConsoleUtil.debug("开始连接OneBot服务器...");
-            OneBotClient oneBotClient = OneBotClient.getInstance();
-            oneBotClient.connect();
+            // 初始化调度器
+            SchedulerManager.getInstance().loadTasks();
             
             // 初始化进群请求处理器
-            logger.debug("初始化进群请求处理器...");
-            ConsoleUtil.debug("初始化进群请求处理器...");
-            GroupRequestProcessor requestProcessor = new GroupRequestProcessor();
-            requestProcessor.init();
+            GroupRequestProcessor processor = new GroupRequestProcessor();
+            processor.init();
             
-            // 初始化GUI界面
-            if (guiMode) {
-                GuiManager.getInstance().initGui(Main::handleCommand);
-            }
-            
-            // 命令行交互
-            logger.info("机器人已启动，输入 'reload' 重新加载配置，输入 'exit' 退出程序");
+            // 初始化完成
+            logger.info("机器人初始化完成，版本: {}", VERSION);
             ConsoleUtil.success("机器人已启动，输入 'reload' 重新加载配置，输入 'exit' 退出程序");
             
-            // 控制台模式下使用Scanner获取输入
-            if (!guiMode) {
-                Scanner scanner = new Scanner(System.in, StandardCharsets.UTF_8.name());
+            // 在GUI模式下，使用控制台输入，否则使用后台守护线程保持程序运行
+            if (guiMode) {
+                // 命令行交互
+                Scanner scanner = new Scanner(System.in);
                 while (true) {
-                    String command = scanner.nextLine().trim();
-                    handleCommand(command);
+                    try {
+                        String command = scanner.nextLine().trim();
+                        handleCommand(command);
+                    } catch (NoSuchElementException e) {
+                        // 处理ctrl+c等中断输入的情况
+                        logger.error("输入被中断: {}", e.getMessage());
+                        break;
+                    } catch (Exception e) {
+                        logger.error("处理命令时出错: {}", e.getMessage(), e);
+                        ConsoleUtil.error("处理命令时出错: " + e.getMessage());
+                    }
                 }
+            } else {
+                // 非GUI模式下，使用一个无限循环的线程来保持程序运行
+                Thread keepAlive = new Thread(() -> {
+                    while (true) {
+                        try {
+                            Thread.sleep(60000); // 每分钟检查一次
+                            // 这里可以添加一些定期检查的逻辑，比如检查连接状态等
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            break;
+                        }
+                    }
+                });
+                keepAlive.setDaemon(false);
+                keepAlive.start();
+                
+                // 添加关闭钩子
+                Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                    logger.info("程序正在关闭...");
+                    try {
+                        // 关闭调度器
+                        SchedulerManager.getInstance().getScheduler().shutdown(true);
+                        logger.info("调度器已关闭");
+                    } catch (Exception e) {
+                        logger.error("关闭调度器时出错", e);
+                    }
+                    logger.info("程序已关闭");
+                }));
             }
         } catch (Exception e) {
             logger.error("程序启动过程中发生错误", e);
