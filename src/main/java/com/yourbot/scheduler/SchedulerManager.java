@@ -307,4 +307,12 @@ public class SchedulerManager {
     public Trigger getTrigger(String taskName) throws SchedulerException {
         return scheduler.getTrigger(TriggerKey.triggerKey(taskName + "_trigger", "tasks"));
     }
+
+    /**
+     * 获取Quartz调度器实例
+     * @return Scheduler实例
+     */
+    public Scheduler getScheduler() {
+        return scheduler;
+    }
 } 
