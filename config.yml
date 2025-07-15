@@ -3,7 +3,7 @@
 
 # 机器人基本配置
 bot:
-  websocket: "ws://127.0.0.1:6700"  # OneBot WebSocket地址
+  websocket: "ws://127.0.0.1:3001"  # OneBot WebSocket地址
   accessToken: ""  # 访问令牌（如果有）
   
   # 日志配置
