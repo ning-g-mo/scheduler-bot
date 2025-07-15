@@ -24,6 +24,9 @@ public class GroupRequestProcessor {
     // OneBotClient实例
     private final OneBotClient client = OneBotClient.getInstance();
     
+    // GroupRequestManager实例
+    private final GroupRequestManager requestManager = GroupRequestManager.getInstance();
+    
     /**
      * 初始化处理器
      */
@@ -38,6 +41,8 @@ public class GroupRequestProcessor {
     private void handleEvent(String event, JsonNode data) {
         if ("request.group.add".equals(event)) {
             handleGroupJoinRequest(data);
+        } else if ("request.group.invite".equals(event)) {
+            handleGroupInviteRequest(data);
         }
     }
     
@@ -79,7 +84,51 @@ public class GroupRequestProcessor {
             ConsoleUtil.error("处理进群请求失败: " + e.getMessage());
         }
     }
-    
+
+    /**
+     * 处理群邀请事件
+     */
+    private void handleGroupInviteRequest(JsonNode data) {
+        try {
+            long groupId = data.get("group_id").asLong();
+            long userId = data.get("user_id").asLong();
+            String flag = data.get("flag").asText();
+
+            logger.info("收到群邀请: 群 {}, 邀请人 {}", groupId, userId);
+            ConsoleUtil.info("收到群邀请: 群 " + groupId + ", 邀请人 " + userId);
+
+            // 获取此群配置的验证任务
+            ScheduledTask verifyTask = getVerifyTaskForGroup(groupId);
+
+            if (verifyTask != null) {
+                switch (verifyTask.getInviteAction()) {
+                    case ACCEPT_ALL:
+                        logger.info("群 {} 配置为总是同意邀请", groupId);
+                        ConsoleUtil.info("群 " + groupId + " 配置为总是同意邀请");
+                        client.handleGroupRequest(flag, true, null);
+                        break;
+                    case IGNORE_ALL:
+                        logger.info("群 {} 配置为总是忽略邀请", groupId);
+                        ConsoleUtil.info("群 " + groupId + " 配置为总是忽略邀请");
+                        // 不做任何操作，即忽略
+                        break;
+                    case AUTO:
+                    default:
+                        logger.info("群 {} 配置了进群验证（自动模式），自动同意邀请", groupId);
+                        ConsoleUtil.info("群 " + groupId + " 配置了进群验证（自动模式），自动同意邀请");
+                        client.handleGroupRequest(flag, true, null);
+                        break;
+                }
+            } else {
+                logger.info("群 {} 没有配置进群验证任务，忽略此邀请", groupId);
+                ConsoleUtil.info("群 " + groupId + " 没有配置进群验证任务，忽略此邀请");
+            }
+        } catch (Exception e) {
+            logger.error("处理群邀请失败", e);
+            ConsoleUtil.error("处理群邀请失败: " + e.getMessage());
+        }
+    }
+
     /**
      * 处理进群验证
      */
@@ -115,6 +164,19 @@ public class GroupRequestProcessor {
         } else {
             // 根据不同验证模式处理
             switch (verifyTask.getVerifyMode()) {
+                case REFUSE_ALL:
+                    // 拒绝所有请求
+                    logger.info("验证模式为拒绝所有，拒绝用户 {} 的请求", userId);
+                    accept = false;
+                    rejectReason = "当前配置为拒绝所有请求";
+                    break;
+                case SUSPEND_ALL:
+                    // 挂起所有请求
+                    processingRequired = false;
+                    requestManager.addSuspendedRequest(groupId, userId, flag, comment, "验证模式配置为挂起所有请求");
+                    logger.info("验证模式为挂起所有，挂起用户 {} 的请求", userId);
+                    ConsoleUtil.info("验证模式为挂起所有，挂起用户 " + userId + " 的请求");
+                    break;
                 case IGNORE_ALL:
                     // 忽略所有验证，直接同意
                     logger.info("验证模式为忽略所有，直接同意用户 {} 的请求", userId);
@@ -166,6 +228,7 @@ public class GroupRequestProcessor {
                     } else if (answerCorrect) {
                         // 答案通过但等级未通过，不处理
                         processingRequired = false;
+                        requestManager.addSuspendedRequest(groupId, userId, flag, comment, "答案验证通过但等级未达标");
                         logger.info("用户 {} 答案验证通过但等级未达标，请求挂起", userId);
                         ConsoleUtil.info("用户 " + userId + " 答案验证通过但等级未达标，请求挂起");
                     } else {
@@ -182,6 +245,7 @@ public class GroupRequestProcessor {
                     } else if (levelPassed) {
                         // 等级通过但答案未通过，不处理
                         processingRequired = false;
+                        requestManager.addSuspendedRequest(groupId, userId, flag, comment, "等级验证通过但答案未通过");
                         logger.info("用户 {} 等级验证通过但答案未通过，请求挂起", userId);
                         ConsoleUtil.info("用户 " + userId + " 等级验证通过但答案未通过，请求挂起");
                     } else {
@@ -288,4 +352,4 @@ public class GroupRequestProcessor {
             this.timestamp = timestamp;
         }
     }
-} 
+}

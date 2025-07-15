@@ -144,6 +144,9 @@ public class OneBotClient {
                                     if ("add".equals(subType)) {
                                         logger.debug("收到进群请求事件");
                                         OneBotEventListener.fireEvent("request.group.add", json);
+                                    } else if ("invite".equals(subType)) {
+                                        logger.debug("收到群邀请事件");
+                                        OneBotEventListener.fireEvent("request.group.invite", json);
                                     }
                                 }
                             }

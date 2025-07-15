@@ -1,0 +1,103 @@
+# 进群申请处理配置示例
+# 这是一个配置示例，展示如何使用新的进群申请处理功能
+
+bot:
+  websocket: "ws://127.0.0.1:6700"  # OneBot服务器地址
+  log:
+    enableMessageLog: true
+    enableDebugLog: false
+    includeInfoInNormal: true
+    maxDays: 30
+
+scheduledTasks:
+  # 进群验证任务示例
+  - name: "群验证-技术交流群"
+    type: "GROUP_REQUEST_VERIFY"
+    targetType: "group"
+    targetId: 123456789  # 替换为实际群号
+    enabled: true
+    
+    # 验证模式配置
+    verifyMode: "BOTH_REQUIRED"  # 可选值：
+    # IGNORE_ALL - 忽略所有申请
+    # REFUSE_ALL - 拒绝所有申请
+    # SUSPEND_ALL - 挂起所有申请
+    # ANY_ONE_PASS - 答案或等级任一通过即可
+    # BOTH_REQUIRED - 答案和等级都必须通过
+    # ANSWER_ONLY - 仅验证答案
+    # LEVEL_ONLY - 仅验证等级
+    # ANSWER_PASS_LEVEL_PENDING - 答案通过但等级不足时挂起
+    # LEVEL_PASS_ANSWER_PENDING - 等级通过但答案错误时挂起
+    
+    # 邀请处理模式
+    inviteAction: "AUTO"  # 可选值：
+    # AUTO - 自动处理（根据验证模式决定）
+    # ACCEPT_ALL - 接受所有邀请
+    # IGNORE_ALL - 忽略所有邀请
+    
+    # 验证问题和答案
+    verifyQuestion: "请问Java中的多态是什么？"
+    verifyAnswer: "多态|polymorphism|重写|覆盖"  # 支持多个答案，用|分隔
+    caseSensitive: false  # 是否区分大小写
+    ignoreSpaces: true    # 是否忽略空格
+    fuzzyMatch: true      # 是否启用模糊匹配
+    
+    # 等级要求
+    minLevel: 10          # 最低等级要求
+    autoAcceptLevel: 50   # 自动通过等级（达到此等级自动通过）
+    
+    # 拒绝消息
+    rejectMessage: "很抱歉，您的申请未通过验证。请确保回答正确且等级达到要求。"
+
+  # 另一个群的配置示例 - 仅答案验证
+  - name: "群验证-新手群"
+    type: "GROUP_REQUEST_VERIFY"
+    targetType: "group"
+    targetId: 987654321  # 替换为实际群号
+    enabled: true
+    
+    verifyMode: "ANSWER_ONLY"
+    inviteAction: "ACCEPT_ALL"
+    
+    verifyQuestion: "欢迎加入新手群！请输入邀请码："
+    verifyAnswer: "welcome2024|新手欢迎"
+    caseSensitive: false
+    ignoreSpaces: true
+    fuzzyMatch: false
+    
+    rejectMessage: "邀请码错误，请联系管理员获取正确的邀请码。"
+
+  # 高级群配置示例 - 等级优先，答案补充
+  - name: "群验证-高级群"
+    type: "GROUP_REQUEST_VERIFY"
+    targetType: "group"
+    targetId: 555666777  # 替换为实际群号
+    enabled: true
+    
+    verifyMode: "LEVEL_PASS_ANSWER_PENDING"
+    inviteAction: "AUTO"
+    
+    verifyQuestion: "请简述您的技术背景和加群目的："
+    verifyAnswer: "技术|开发|学习|交流|编程"  # 关键词匹配
+    caseSensitive: false
+    ignoreSpaces: true
+    fuzzyMatch: true
+    
+    minLevel: 30
+    autoAcceptLevel: 80
+    
+    rejectMessage: "感谢您的申请。由于群内讨论较为深入，建议您先在其他群积累经验后再申请加入。"
+
+# 使用说明：
+# 1. 修改上述配置中的群号为实际群号
+# 2. 根据需要调整验证问题、答案和等级要求
+# 3. 保存配置后，使用 'reload' 命令重新加载
+# 4. 使用 'request' 命令管理挂起的申请
+#
+# 命令使用示例：
+# request list                    - 查看所有挂起的申请
+# request group 123456789         - 查看指定群的申请
+# request approve abc123          - 同意申请
+# request reject abc123           - 拒绝申请
+# request clean                   - 清理过期申请
+# request stats                   - 查看申请统计

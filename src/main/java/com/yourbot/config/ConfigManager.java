@@ -36,6 +36,20 @@ public class ConfigManager {
         return instance;
     }
     
+    /**
+     * 获取机器人配置
+     */
+    public BotConfig getBotConfig() {
+        return botConfig;
+    }
+    
+    /**
+     * 获取定时任务列表
+     */
+    public List<ScheduledTask> getScheduledTasks() {
+        return scheduledTasks;
+    }
+    
     public void loadConfig() {
         logger.info("开始加载配置文件: {}", configPath);
         ConsoleUtil.info("开始加载配置文件: " + configPath);
@@ -224,6 +238,27 @@ public class ConfigManager {
         private String accessToken;
         private LogConfig log = new LogConfig();
         private SafetyConfig safety = new SafetyConfig();
+        
+        /**
+         * 获取WebSocket地址
+         */
+        public String getWebsocket() {
+            return websocket;
+        }
+        
+        /**
+         * 获取访问令牌
+         */
+        public String getAccessToken() {
+            return accessToken;
+        }
+        
+        /**
+         * 获取日志配置
+         */
+        public LogConfig getLog() {
+            return log;
+        }
     }
     
     @Data
@@ -244,4 +279,4 @@ public class ConfigManager {
         private int taskMinIntervalMs = 5000;
         private boolean enableAutoRiskControl = true;
     }
-} 
+}

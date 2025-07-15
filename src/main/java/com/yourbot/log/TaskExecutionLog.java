@@ -56,4 +56,33 @@ public class TaskExecutionLog {
     public long getTargetId() {
         return targetIds.isEmpty() ? 0 : targetIds.get(0);
     }
-} 
+    
+    // 明确添加getter方法以确保编译通过
+    public boolean isSuccess() {
+        return success;
+    }
+    
+    public LocalDateTime getExecutionTime() {
+        return executionTime;
+    }
+    
+    public String getTaskName() {
+        return taskName;
+    }
+    
+    public String getTaskType() {
+        return taskType;
+    }
+    
+    public String getTargetType() {
+        return targetType;
+    }
+    
+    public String getDetails() {
+        return details;
+    }
+    
+    public String getErrorMessage() {
+        return errorMessage;
+    }
+}

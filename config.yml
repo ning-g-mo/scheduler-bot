@@ -1,205 +1,336 @@
+# 定时任务机器人完整配置文件
+# 基于整个项目功能生成的完整配置示例
+
 # 机器人基本配置
 bot:
-  websocket: "ws://127.0.0.1:3001"  # OneBot WebSocket地址
+  websocket: "ws://127.0.0.1:6700"  # OneBot WebSocket地址
   accessToken: ""  # 访问令牌（如果有）
+  
+  # 日志配置
   log:
-    enableMessageLog: false     # 是否记录收到的消息
-    enableDebugLog: false      # 是否启用调试日志
-    includeInfoInNormal: false  # 是否在普通日志中包含INFO和MIXIN日志
-    maxMessageLogs: 1000       # 最大消息日志数量
-    maxDays: 30               # 日志保留天数
+    enableMessageLog: true      # 是否记录收到的消息
+    enableDebugLog: false       # 是否启用调试日志
+    includeInfoInNormal: true   # 是否在普通日志中包含INFO和MIXIN日志
+    maxMessageLogs: 1000        # 最大消息日志数量
+    maxDays: 30                 # 日志保留天数
+  
+  # 安全配置
   safety:
-    enableMsgLimit: true           # 启用消息限制
-    msgIntervalMs: 1500           # 消息最小间隔(毫秒)
-    groupMsgLimit: 20             # 群消息每分钟限制
-    privateMsgLimit: 10           # 私聊消息每分钟限制
-    taskMinIntervalMs: 5000       # 任务最小执行间隔
-    enableAutoRiskControl: true    # 启用自动风控保护
+    enableMsgLimit: true        # 启用消息限制
+    msgIntervalMs: 1500         # 消息发送间隔（毫秒）
+    groupMsgLimit: 20           # 群消息限制
+    privateMsgLimit: 10         # 私聊消息限制
+    taskMinIntervalMs: 5000     # 任务最小执行间隔（毫秒）
+    enableAutoRiskControl: true # 启用自动风控保护
 
 # 定时任务配置
 scheduledTasks:
+  # ==================== 消息发送任务 ====================
+  
+  # 群消息发送示例
   - name: "早安问候"
     type: "SEND_MESSAGE"
     targetType: "GROUP"
     targetIds:  # 支持多个群
       - 123456789
       - 987654321
-    cronExpression: "0 30 7 * * ?"
-    content: "早上好，今天也要元气满满哦！"
+    cronExpression: "0 30 7 * * ?"  # 每天早上7:30
+    content: "早上好，今天也要元气满满哦！☀️"
     
+  # 私聊消息发送示例
   - name: "晚间提醒"
     type: "SEND_MESSAGE"
     targetType: "PRIVATE"
-    targetIds:  # 支持多个好友
-      - 111222333
-      - 444555666
-    cronExpression: "0 0 22 * * ?"
-    content: "该休息了，记得早点睡觉哦~"
+    targetIds:
+      - 111222333  # QQ号
+    cronExpression: "0 0 22 * * ?"  # 每天晚上10点
+    content: "该休息了，记得早点睡觉哦~ 🌙"
     
+  # 图文消息示例
+  - name: "周报推送"
+    type: "SEND_MESSAGE"
+    targetType: "GROUP"
+    targetIds:
+      - 123456789
+    cronExpression: "0 0 9 ? * MON"  # 每周一早上9点
+    content: |
+      📊 本周工作总结
+      
+      [CQ:image,file=weekly_report.jpg]
+      
+      大家好，新的一周开始了！
+      请查看本周的工作安排和重要事项。
+      
+      祝大家工作顺利！ 💪
+      
+  # 艾特消息示例
+  - name: "会议提醒"
+    type: "SEND_MESSAGE"
+    targetType: "GROUP"
+    targetIds:
+      - 123456789
+    cronExpression: "0 55 13 * * ?"  # 每天下午1:55
+    content: "[CQ:at,qq=111222333] [CQ:at,qq=444555666] 会议即将开始，请准备参加！"
+    
+  # ==================== 群管理任务 ====================
+  
+  # 全体禁言任务
   - name: "周末全体禁言"
     type: "GROUP_BAN_ALL"
     targetType: "GROUP"
-    targetIds:  # 支持多个群
+    targetIds:
       - 123456789
-      - 987654321
-    cronExpression: "0 0 23 ? * FRI"
-    enable: true
+    cronExpression: "0 0 23 ? * FRI"  # 每周五晚上11点
+    enable: true  # 开启全体禁言
     sendNotice: true
-    noticeContent: "周末愉快！全体禁言开启，请各位周一见~"
+    noticeContent: "周末愉快！全体禁言开启，请各位周一见~ 🎉"
     
+  # 解除全体禁言任务
   - name: "周一解除全体禁言"
     type: "GROUP_BAN_ALL"
     targetType: "GROUP"
-    targetIds:  # 修改为数组格式
+    targetIds:
       - 123456789
-      - 987654321
-    cronExpression: "0 0 8 ? * MON"
-    enable: false
+    cronExpression: "0 0 8 ? * MON"  # 每周一早上8点
+    enable: false  # 关闭全体禁言
     sendNotice: true
-    noticeContent: "早上好！新的一周开始了，全体禁言已解除~"
+    noticeContent: "早上好！新的一周开始了，全体禁言已解除~ ☀️"
     
-  - name: "特定用户禁言"
+  # 特定用户禁言任务
+  - name: "违规用户定时禁言"
     type: "GROUP_BAN_MEMBER"
     targetType: "GROUP"
-    targetIds:  # 要操作的群
+    targetIds:
       - 123456789
-      - 987654321
-    memberIds:  # 要禁言的成员
+    memberIds:  # 支持多个用户
       - 111222333
       - 444555666
-    cronExpression: "0 0 12 * * ?"
-    duration: 3600
+    cronExpression: "0 0 12 * * ?"  # 每天中午12点
+    duration: 3600  # 禁言1小时（秒）
     sendNotice: true
-    noticeContent: "成员 {memberId} 已被禁言 {duration}，请遵守群规则。"
+    noticeContent: "成员 {memberId} 已被禁言 {duration} 秒，请遵守群规则。"
     
-  - name: "特定用户解禁"
+  # 特定用户解禁任务
+  - name: "定时解禁用户"
     type: "GROUP_BAN_MEMBER"
     targetType: "GROUP"
-    targetIds:  # 修改为数组格式
+    targetIds:
       - 123456789
-      - 987654321
-    memberIds:  # 修改为数组格式
+    memberIds:
       - 111222333
-      - 444555666
-    cronExpression: "0 0 13 * * ?"
-    duration: 0
+    cronExpression: "0 0 18 * * ?"  # 每天下午6点
+    duration: 0  # 解除禁言
     sendNotice: true
-    noticeContent: "成员 {memberId} 的禁言已解除，希望遵守群规则。"
-
-  # 进群验证配置
-  - name: "编程群进群验证"
+    noticeContent: "成员 {memberId} 禁言已解除，请继续遵守群规则。"
+    
+  # ==================== 进群验证任务 ====================
+  
+  # 基础答案验证
+  - name: "技术群进群验证"
     type: "GROUP_REQUEST_VERIFY"
     targetType: "GROUP"
     targetIds:
-      - 123456789  # 要启用验证的群号
+      - 123456789
     verifyQuestion: "请回答：Python和Java都是什么类型的编程语言？"
     verifyAnswers:  # 支持多个正确答案
       - "面向对象编程语言"
       - "面向对象"
       - "OOP"
+      - "高级编程语言"
     rejectMessage: "回答错误，请重新申请并正确回答问题"
     caseSensitive: false  # 答案是否区分大小写
     ignoreWhitespace: true  # 答案是否忽略空格
     fuzzyMatch: true  # 答案是否模糊匹配
     verifyMode: "ANSWER_ONLY"  # 验证模式：只验证答案
+    inviteAction: "AUTO"  # 邀请处理：自动处理
     
-  - name: "动漫群进群验证"
+  # 等级验证示例
+  - name: "高级群等级验证"
     type: "GROUP_REQUEST_VERIFY"
     targetType: "GROUP"
     targetIds:
-      - 987654321  # 要启用验证的群号
-    verifyQuestion: "请说出EVA的全名是什么？"
+      - 987654321
+    verifyQuestion: "请回答：您的QQ等级是多少？（数字即可）"
     verifyAnswers:
-      - "新世纪福音战士"
-      - "Neon Genesis Evangelion"
-    rejectMessage: "您似乎不是真正的EVA迷，请重新申请并正确回答问题"
+      - "20"
+      - "25"
+      - "30"
+    rejectMessage: "等级不符合要求，本群要求QQ等级20级以上"
     caseSensitive: false
     ignoreWhitespace: true
     fuzzyMatch: false
-    verifyMode: "ANSWER_ONLY"
+    minLevel: 20  # 最低等级要求
+    maxAutoAcceptLevel: 50  # 达到50级自动通过
+    verifyMode: "LEVEL_ONLY"  # 验证模式：只验证等级
+    inviteAction: "AUTO"
     
-  # 新增高级验证配置示例
-  - name: "资深用户群进群验证"
+  # 综合验证示例（答案+等级）
+  - name: "VIP群综合验证"
     type: "GROUP_REQUEST_VERIFY"
     targetType: "GROUP"
     targetIds:
-      - 123456789  # 要启用验证的群号
-    verifyQuestion: "请回答：本群的创建时间是？(提示：2020年x月)"
+      - 555666777
+    verifyQuestion: "请回答：本群的主题是什么？（提示：与编程相关）"
     verifyAnswers:
-      - "2020年6月"
-      - "2020年六月"
-      - "2020.6"
-    rejectMessage: "回答错误，请查看群简介后重新回答"
+      - "Java编程"
+      - "Java开发"
+      - "Java学习"
+      - "编程"
+    rejectMessage: "回答错误或等级不足，请查看群介绍后重新申请"
     caseSensitive: false
     ignoreWhitespace: true
     fuzzyMatch: true
-    minLevel: 20  # 最低等级要求
-    maxAutoAcceptLevel: 50  # 达到50级自动通过
-    verifyMode: "ANY_ONE_PASS"  # 验证模式：任一验证通过即可
+    minLevel: 15  # 最低等级要求
+    maxAutoAcceptLevel: 40  # 达到40级自动通过
+    verifyMode: "BOTH_REQUIRED"  # 验证模式：答案和等级都必须通过
+    inviteAction: "AUTO"
     
-  - name: "高要求技术群验证"
+  # 任一验证通过示例
+  - name: "新手群宽松验证"
     type: "GROUP_REQUEST_VERIFY"
     targetType: "GROUP"
     targetIds:
-      - 987654321  # 要启用验证的群号
-    verifyQuestion: "请简述您的技术背景和加群目的"
+      - 888999000
+    verifyQuestion: "请回答：您是通过什么方式了解到本群的？"
     verifyAnswers:
-      - "开发"
-      - "程序员"
-      - "工程师"
-      - "技术"
-    rejectMessage: "很抱歉，您的回答未能通过验证，请提供更详细的技术背景"
+      - "朋友推荐"
+      - "网上搜索"
+      - "其他群介绍"
+      - "官方推荐"
+    rejectMessage: "验证失败，请重新申请"
+    caseSensitive: false
+    ignoreWhitespace: true
+    fuzzyMatch: true
+    minLevel: 5  # 最低等级要求
+    verifyMode: "ANY_ONE_PASS"  # 验证模式：任一验证通过即可
+    inviteAction: "AUTO"
+    
+  # 答案通过但等级挂起示例
+  - name: "专业群答案优先验证"
+    type: "GROUP_REQUEST_VERIFY"
+    targetType: "GROUP"
+    targetIds:
+      - 111333555
+    verifyQuestion: "请回答：您的专业技能领域是什么？"
+    verifyAnswers:
+      - "Java开发"
+      - "Python开发"
+      - "前端开发"
+      - "后端开发"
+      - "全栈开发"
+    rejectMessage: "专业技能不符合要求"
+    caseSensitive: false
+    ignoreWhitespace: true
+    fuzzyMatch: true
+    minLevel: 25  # 最低等级要求
+    verifyMode: "ANSWER_PASS_LEVEL_PENDING"  # 答案通过但等级不符要求时挂起
+    inviteAction: "AUTO"
+    
+  # 等级通过但答案挂起示例
+  - name: "高等级群等级优先验证"
+    type: "GROUP_REQUEST_VERIFY"
+    targetType: "GROUP"
+    targetIds:
+      - 222444666
+    verifyQuestion: "请回答：您加入本群的目的是什么？"
+    verifyAnswers:
+      - "技术交流"
+      - "学习提升"
+      - "项目合作"
+    rejectMessage: "加群目的不明确"
     caseSensitive: false
     ignoreWhitespace: true
     fuzzyMatch: true
     minLevel: 30  # 最低等级要求
-    verifyMode: "BOTH_REQUIRED"  # 验证模式：答案和等级都必须通过
+    verifyMode: "LEVEL_PASS_ANSWER_PENDING"  # 等级通过但答案不符要求时挂起
+    inviteAction: "AUTO"
     
-  - name: "VIP用户群验证"
+  # 忽略所有验证示例
+  - name: "开放群无验证"
     type: "GROUP_REQUEST_VERIFY"
     targetType: "GROUP"
     targetIds:
-      - 123454321  # 要启用验证的群号
-    verifyQuestion: "请输入您的VIP邀请码"
+      - 777888999
+    verifyQuestion: "欢迎加入开放群！"
     verifyAnswers:
-      - "VIP2023"
-      - "VIP2024"
-    rejectMessage: "邀请码无效，请联系管理员获取"
-    caseSensitive: true  # 邀请码区分大小写
-    ignoreWhitespace: true
-    fuzzyMatch: false
-    minLevel: 0  # 不检查等级
-    maxAutoAcceptLevel: 100  # 100级以上自动通过
-    verifyMode: "ANSWER_PASS_LEVEL_PENDING"  # 答案通过但等级不符合要求将不处理
-
-  - name: "图文消息"
-    type: "SEND_MESSAGE"
+      - "任意回答"
+    rejectMessage: ""  # 不会用到
+    verifyMode: "IGNORE_ALL"  # 验证模式：忽略所有验证，直接同意
+    inviteAction: "ACCEPT_ALL"  # 邀请处理：总是同意邀请
+    
+  # 拒绝所有申请示例
+  - name: "私密群拒绝验证"
+    type: "GROUP_REQUEST_VERIFY"
     targetType: "GROUP"
-    targetIds: 
-      - 123456789
-    cronExpression: "0 30 7 * * ?"
-    content: "早上好！\n今天也要元气满满哦！\n[图片:https://ningmo.fun/logo.png]"
-
-  - name: "测试消息"
-    type: "SEND_MESSAGE"
+    targetIds:
+      - 333555777
+    verifyQuestion: "本群暂不开放申请"
+    verifyAnswers:
+      - "无效答案"
+    rejectMessage: "本群暂不开放申请，请联系管理员获取邀请"
+    verifyMode: "REFUSE_ALL"  # 验证模式：拒绝所有请求
+    inviteAction: "IGNORE_ALL"  # 邀请处理：忽略所有邀请
+    
+  # 挂起所有申请示例
+  - name: "审核群挂起验证"
+    type: "GROUP_REQUEST_VERIFY"
     targetType: "GROUP"
-    targetIds: 
-      - 123456789
-    cronExpression: "0 * * * * ?"  # 每分钟执行一次
-    content: "测试消息\n这是第二行"  # 先测试纯文本和换行
+    targetIds:
+      - 444666888
+    verifyQuestion: "请耐心等待管理员审核"
+    verifyAnswers:
+      - "等待审核"
+    rejectMessage: ""  # 不会用到
+    verifyMode: "SUSPEND_ALL"  # 验证模式：挂起所有请求
+    inviteAction: "AUTO"
 
-  - name: "艾特消息测试"
-    type: "SEND_MESSAGE"
-    targetType: "GROUP"
-    targetIds: 
-      - 123456789
-    cronExpression: "0 0 8 * * ?"
-    content: "[艾特全体]早上好！\n[艾特:123456]请注意查看群公告。"
-
-  - name: "图文艾特混合消息"
-    type: "SEND_MESSAGE"
-    targetType: "GROUP"
-    targetIds: 
-      - 123456789
-    cronExpression: "0 30 12 * * ?"
-    content: "[艾特全体]午餐时间到啦！\n[图片:https://example.com/food.jpg]\n[艾特:123456][艾特:456789]记得按时吃饭哦~"
+# ==================== 配置说明 ====================
+# 
+# 任务类型 (type):
+# - SEND_MESSAGE: 发送消息
+# - GROUP_BAN_ALL: 全体禁言/解禁
+# - GROUP_BAN_MEMBER: 禁言/解禁特定成员
+# - GROUP_REQUEST_VERIFY: 进群请求验证
+#
+# 目标类型 (targetType):
+# - GROUP: 群聊
+# - PRIVATE: 私聊
+#
+# 验证模式 (verifyMode):
+# - IGNORE_ALL: 忽略所有验证，直接同意所有申请
+# - ANY_ONE_PASS: 答案验证或等级验证通过任一个即可同意
+# - BOTH_REQUIRED: 必须同时通过答案验证和等级验证
+# - ANSWER_ONLY: 只检查答案正确性（默认模式）
+# - LEVEL_ONLY: 只检查用户等级
+# - ANSWER_PASS_LEVEL_PENDING: 答案通过但等级不符要求时挂起请求
+# - LEVEL_PASS_ANSWER_PENDING: 等级通过但答案不正确时挂起请求
+# - REFUSE_ALL: 拒绝所有请求
+# - SUSPEND_ALL: 挂起所有请求
+#
+# 邀请处理模式 (inviteAction):
+# - AUTO: 自动处理（根据验证配置决定）
+# - ACCEPT_ALL: 总是同意邀请
+# - IGNORE_ALL: 总是忽略邀请
+#
+# Cron表达式格式: 秒 分 时 日 月 周
+# 示例:
+# - "0 30 7 * * ?" : 每天早上7:30
+# - "0 0 22 * * ?" : 每天晚上10点
+# - "0 0 9 ? * MON" : 每周一早上9点
+# - "0 0 23 ? * FRI" : 每周五晚上11点
+#
+# 特殊消息格式:
+# - [CQ:image,file=图片文件名] : 发送图片
+# - [CQ:at,qq=QQ号] : 艾特用户
+# - [CQ:face,id=表情ID] : 发送QQ表情
+#
+# ==================== 使用建议 ====================
+#
+# 1. 请根据实际需要修改群号、QQ号等信息
+# 2. 建议先在测试群中验证配置的正确性
+# 3. 定时任务的时间间隔不宜过短，避免被风控
+# 4. 进群验证的问题和答案要设置得合理，避免误拦截
+# 5. 启用安全配置可以有效防止被封号
+# 6. 定期检查日志文件，及时发现和解决问题
+#
+# ==================== 配置完成 ====================

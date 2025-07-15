@@ -30,6 +30,7 @@ public class ScheduledTask {
     private int minLevel = 0;                 // 最低等级要求（0表示不检查）
     private int maxAutoAcceptLevel = 0;       // 达到多少等级时自动同意（0表示不自动同意）
     private VerifyMode verifyMode = VerifyMode.ANSWER_ONLY; // 验证模式
+    private InviteAction inviteAction = InviteAction.AUTO; // 邀请处理模式
     
     // 验证模式枚举
     public enum VerifyMode {
@@ -39,7 +40,16 @@ public class ScheduledTask {
         ANSWER_ONLY,             // 满足答案验证同意
         LEVEL_ONLY,              // 满足等级验证同意
         ANSWER_PASS_LEVEL_PENDING, // 满足答案验证但等级不符合要求将不处理
-        LEVEL_PASS_ANSWER_PENDING  // 满足等级验证但答案验证不符合要求将不处理
+        LEVEL_PASS_ANSWER_PENDING, // 满足等级验证但答案验证不符合要求将不处理
+        REFUSE_ALL,              // 拒绝所有请求
+        SUSPEND_ALL              // 挂起所有请求
+    }
+    
+    // 邀请处理模式枚举
+    public enum InviteAction {
+        AUTO,        // 自动处理（根据验证配置决定）
+        ACCEPT_ALL,  // 总是同意邀请
+        IGNORE_ALL   // 总是忽略邀请
     }
     
     // 兼容单个目标ID的setter
@@ -152,4 +162,41 @@ public class ScheduledTask {
         // 检查用户等级是否达到自动通过等级
         return userLevel >= maxAutoAcceptLevel;
     }
-} 
+    
+    // 明确添加getter方法以确保编译通过
+    public String getName() {
+        return name;
+    }
+    
+    public TaskType getType() {
+        return type;
+    }
+    
+    public String getTargetType() {
+        return targetType;
+    }
+    
+    public List<Long> getTargetIds() {
+        return targetIds;
+    }
+    
+    public String getCronExpression() {
+        return cronExpression;
+    }
+    
+    public VerifyMode getVerifyMode() {
+        return verifyMode;
+    }
+    
+    public InviteAction getInviteAction() {
+        return inviteAction;
+    }
+    
+    public String getRejectMessage() {
+        return rejectMessage;
+    }
+    
+    public String getVerifyQuestion() {
+        return verifyQuestion;
+    }
+}

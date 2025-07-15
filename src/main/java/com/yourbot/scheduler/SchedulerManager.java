@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 import com.yourbot.util.ConsoleUtil;
 import com.yourbot.log.TaskExecutionLog;
 import com.yourbot.log.TaskLogManager;
+import com.yourbot.scheduler.TaskType;
 
 public class SchedulerManager {
     private static final Logger logger = LoggerFactory.getLogger(SchedulerManager.class);
@@ -92,6 +93,20 @@ public class SchedulerManager {
     
     private void scheduleTask(ScheduledTask task) throws SchedulerException {
         logger.debug("开始调度任务: {}", task.getName());
+        
+        // 跳过事件驱动的任务（如进群验证），这些任务不需要定时执行
+        if (task.getType() == TaskType.GROUP_REQUEST_VERIFY) {
+            logger.info("跳过事件驱动任务: {} (类型: {})", task.getName(), task.getType());
+            System.out.println("已注册事件驱动任务: " + task.getName() + " (类型: " + task.getType() + ")");
+            return;
+        }
+        
+        // 验证定时任务的Cron表达式
+        if (task.getCronExpression() == null || task.getCronExpression().trim().isEmpty()) {
+            logger.error("定时任务 {} 缺少Cron表达式", task.getName());
+            System.err.println("定时任务 " + task.getName() + " 缺少Cron表达式");
+            return;
+        }
         
         try {
             // 验证Cron表达式
@@ -315,4 +330,4 @@ public class SchedulerManager {
     public Scheduler getScheduler() {
         return scheduler;
     }
-} 
+}

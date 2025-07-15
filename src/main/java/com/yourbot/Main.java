@@ -20,13 +20,14 @@ import com.yourbot.log.TaskExecutionLog;
 import com.yourbot.log.TaskLogManager;
 import com.yourbot.onebot.OneBotClient;
 import com.yourbot.onebot.GroupRequestProcessor;
+import com.yourbot.command.GroupRequestCommand;
 
 public class Main {
     private static final Logger logger = LoggerFactory.getLogger(Main.class);
     private static boolean guiMode = true;
     
     // 添加版本号常量
-    public static final String VERSION = "1.2.3";
+    public static final String VERSION = "1.2.4";
     
     public static void main(String[] args) {
         // 检查是否以无界面模式启动
@@ -92,30 +93,17 @@ public class Main {
             logger.info("机器人初始化完成，版本: {}", VERSION);
             ConsoleUtil.success("机器人已启动，输入 'reload' 重新加载配置，输入 'exit' 退出程序");
             
-            // 在GUI模式下，使用控制台输入，否则使用后台守护线程保持程序运行
+            // 根据模式启动不同的用户界面
             if (guiMode) {
-                // 命令行交互
-                Scanner scanner = new Scanner(System.in);
-                while (true) {
-                    try {
-                        String command = scanner.nextLine().trim();
-                        handleCommand(command);
-                    } catch (NoSuchElementException e) {
-                        // 处理ctrl+c等中断输入的情况
-                        logger.error("输入被中断: {}", e.getMessage());
-                        break;
-                    } catch (Exception e) {
-                        logger.error("处理命令时出错: {}", e.getMessage(), e);
-                        ConsoleUtil.error("处理命令时出错: " + e.getMessage());
-                    }
-                }
-            } else {
-                // 非GUI模式下，使用一个无限循环的线程来保持程序运行
+                // GUI模式：启动图形界面
+                logger.info("启动GUI模式");
+                GuiManager.getInstance().initGui(Main::handleCommand);
+                
+                // 在GUI模式下，使用后台线程保持程序运行
                 Thread keepAlive = new Thread(() -> {
                     while (true) {
                         try {
                             Thread.sleep(60000); // 每分钟检查一次
-                            // 这里可以添加一些定期检查的逻辑，比如检查连接状态等
                         } catch (InterruptedException e) {
                             Thread.currentThread().interrupt();
                             break;
@@ -124,20 +112,61 @@ public class Main {
                 });
                 keepAlive.setDaemon(false);
                 keepAlive.start();
+            } else {
+                // nogui模式：使用命令行交互
+                logger.info("启动nogui模式");
                 
-                // 添加关闭钩子
-                Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                    logger.info("程序正在关闭...");
-                    try {
-                        // 关闭调度器
-                        SchedulerManager.getInstance().getScheduler().shutdown(true);
-                        logger.info("调度器已关闭");
+                // 在单独的线程中处理用户输入
+                Thread inputThread = new Thread(() -> {
+                    try (Scanner scanner = new Scanner(System.in)) {
+                        while (!Thread.currentThread().isInterrupted()) {
+                            try {
+                                if (scanner.hasNextLine()) {
+                                    String command = scanner.nextLine().trim();
+                                    if ("exit".equalsIgnoreCase(command)) {
+                                        System.exit(0);
+                                        break;
+                                    }
+                                    handleCommand(command);
+                                }
+                            } catch (NoSuchElementException e) {
+                                // 输入流被关闭，退出循环
+                                logger.info("输入流已关闭，程序退出");
+                                break;
+                            } catch (Exception e) {
+                                logger.error("处理命令时出错: {}", e.getMessage(), e);
+                                ConsoleUtil.error("处理命令时出错: " + e.getMessage());
+                            }
+                        }
                     } catch (Exception e) {
-                        logger.error("关闭调度器时出错", e);
+                        logger.error("输入处理线程异常: {}", e.getMessage(), e);
                     }
-                    logger.info("程序已关闭");
-                }));
+                });
+                inputThread.setName("InputHandler");
+                inputThread.setDaemon(false);
+                inputThread.start();
+                
+                // 主线程保持运行
+                try {
+                    inputThread.join();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    logger.info("主线程被中断，程序退出");
+                }
             }
+            
+            // 添加关闭钩子（对两种模式都适用）
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                logger.info("程序正在关闭...");
+                try {
+                    // 关闭调度器
+                    SchedulerManager.getInstance().getScheduler().shutdown(true);
+                    logger.info("调度器已关闭");
+                } catch (Exception e) {
+                    logger.error("关闭调度器时出错", e);
+                }
+                logger.info("程序已关闭");
+            }));
         } catch (Exception e) {
             logger.error("程序启动过程中发生错误", e);
             ConsoleUtil.error("程序启动失败: " + e.getMessage());
@@ -194,6 +223,14 @@ public class Main {
         ConsoleUtil.info("    logs recent [数量] - 显示最近的日志，可指定数量");
         ConsoleUtil.info("    logs task [任务名] - 显示特定任务的日志");
         ConsoleUtil.info("    logs export [任务名] - 导出特定任务的日志到文件");
+        ConsoleUtil.info("  request - 管理进群申请");
+        ConsoleUtil.info("    request menu     - 显示进群申请管理菜单");
+        ConsoleUtil.info("    request list     - 查看所有挂起的申请");
+        ConsoleUtil.info("    request group [群号] - 查看指定群的申请");
+        ConsoleUtil.info("    request approve [flag] - 同意申请");
+        ConsoleUtil.info("    request reject [flag] - 拒绝申请");
+        ConsoleUtil.info("    request clean    - 清理过期申请");
+        ConsoleUtil.info("    request stats    - 显示申请统计");
         ConsoleUtil.info("");
         ConsoleUtil.info("配置文件: config.yml");
         ConsoleUtil.info("  修改此文件可以配置机器人连接信息和定时任务");
@@ -343,6 +380,74 @@ public class Main {
     }
 
     /**
+     * 处理进群申请管理命令
+     */
+    private static void handleRequestCommand(String command) {
+        String[] parts = command.split("\\s+", 3);
+        
+        if (parts.length == 1) {
+            // 显示帮助信息
+            ConsoleUtil.info("进群申请管理命令:");
+            ConsoleUtil.info("  request menu     - 显示进群申请管理菜单");
+            ConsoleUtil.info("  request list     - 查看所有挂起的申请");
+            ConsoleUtil.info("  request group [群号] - 查看指定群的申请");
+            ConsoleUtil.info("  request approve [flag] - 同意申请");
+            ConsoleUtil.info("  request reject [flag] - 拒绝申请");
+            ConsoleUtil.info("  request clean    - 清理过期申请");
+            ConsoleUtil.info("  request stats    - 显示申请统计");
+            return;
+        }
+        
+        String subCommand = parts[1];
+        GroupRequestCommand requestCommand = new GroupRequestCommand();
+        
+        switch (subCommand.toLowerCase()) {
+            case "menu":
+                requestCommand.showMenu();
+                break;
+            case "list":
+                requestCommand.showAllRequests();
+                break;
+            case "group":
+                if (parts.length > 2) {
+                    try {
+                        long groupId = Long.parseLong(parts[2]);
+                        requestCommand.showRequestsByGroup(groupId);
+                    } catch (NumberFormatException e) {
+                        ConsoleUtil.warn("无效的群号: " + parts[2]);
+                    }
+                } else {
+                    ConsoleUtil.warn("请指定群号，例如: request group 123456789");
+                }
+                break;
+            case "approve":
+                if (parts.length > 2) {
+                    requestCommand.approveRequest(parts[2]);
+                } else {
+                    ConsoleUtil.warn("请指定申请标识，例如: request approve abc123");
+                }
+                break;
+            case "reject":
+                if (parts.length > 2) {
+                    requestCommand.rejectRequest(parts[2]);
+                } else {
+                    ConsoleUtil.warn("请指定申请标识，例如: request reject abc123");
+                }
+                break;
+            case "clean":
+                requestCommand.cleanExpiredRequests();
+                break;
+            case "stats":
+                requestCommand.showStatistics();
+                break;
+            default:
+                ConsoleUtil.warn("未知的申请管理命令: " + subCommand);
+                ConsoleUtil.info("输入 'request' 查看可用命令");
+                break;
+        }
+    }
+
+    /**
      * 处理用户输入的命令
      */
     private static void handleCommand(String command) {
@@ -363,9 +468,12 @@ public class Main {
         } else if (command.startsWith("logs")) {
             logger.info("用户请求查看日志");
             handleLogsCommand(command);
+        } else if (command.startsWith("request")) {
+            logger.info("用户请求管理进群申请");
+            handleRequestCommand(command);
         } else {
             logger.debug("用户输入了未知命令: {}", command);
             ConsoleUtil.warn("未知命令，输入 'help' 查看可用命令");
         }
     }
-} 
+}
